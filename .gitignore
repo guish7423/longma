@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Project content (5-layer structure)
+references/
+projects/novels/
+projects/huashu-design/
+reports/
+configs/
+tmp/
+
+# Auto-generated feature state
+.hive/
+
+# Personal notes
+.learnings/
+
+# Skill directories (symlinks + external)
+skills/
+
+# OpenCode project config
+.opencode/
+
+# Temp and cache
+*.log
+.DS_Store
