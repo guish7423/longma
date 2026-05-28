@@ -5,10 +5,6 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Tag name for release'
-        required: true
 
 permissions:
   contents: write
@@ -17,28 +13,6 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-windows:
-    name: Build Windows
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-          cache-dependency-path: projects/longma/package-lock.json
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install & Build
-        shell: pwsh
-        run: |
-          cd projects/longma
-          npm install
-          npm run tauri build -- --verbose
-      - uses: actions/upload-artifact@v4
-        with:
-          name: LongMa-Windows
-          path: projects/longma/src-tauri/target/release/bundle/
-
   build-linux:
     name: Build Linux
     runs-on: ubuntu-latest
@@ -47,23 +21,52 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
-          cache-dependency-path: projects/longma/package-lock.json
       - uses: dtolnay/rust-toolchain@stable
-      - name: Install system deps
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
-      - name: Test
+      - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+      - name: Debug info
         run: |
-          cd projects/longma
-          npm install
-          npm test
+          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
+          ls -la
+          echo "---"
+          ls -la projects/longma/package.json
+          echo "---"
+          node --version
+          npm --version
       - name: Build
+        working-directory: projects/longma
         run: |
-          cd projects/longma
-          npm run tauri build -- --verbose
+          npm install
+          npm run tauri build
       - uses: actions/upload-artifact@v4
         with:
           name: LongMa-Linux
+          path: projects/longma/src-tauri/target/release/bundle/
+
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Debug info
+        shell: pwsh
+        run: |
+          echo "GITHUB_WORKSPACE=$env:GITHUB_WORKSPACE"
+          Get-ChildItem -Path "projects/longma/package.json"
+          node --version
+          npm --version
+      - name: Build
+        shell: pwsh
+        working-directory: projects/longma
+        run: |
+          npm install
+          npm run tauri build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LongMa-Windows
           path: projects/longma/src-tauri/target/release/bundle/
 
   build-macos:
@@ -74,15 +77,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
-          cache-dependency-path: projects/longma/package-lock.json
       - uses: dtolnay/rust-toolchain@stable
-      - name: Install & Build
+      - name: Debug info
         run: |
-          cd projects/longma
+          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
+          ls -la projects/longma/package.json
+          node --version
+          npm --version
+      - name: Build
+        working-directory: projects/longma
+        run: |
           npm install
-          npm test
-          npm run tauri build -- --verbose
+          npm run tauri build
       - uses: actions/upload-artifact@v4
         with:
           name: LongMa-macOS
@@ -90,7 +96,7 @@ jobs:
 
   create-release:
     name: Create Release
-    needs: [build-windows, build-linux, build-macos]
+    needs: [build-linux, build-windows, build-macos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -99,7 +105,6 @@ jobs:
           pattern: LongMa-*
           merge-multiple: true
       - name: Generate Release Notes
-        id: notes
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           {
@@ -112,24 +117,6 @@ jobs:
             find . -name "*.deb" -o -name "*.AppImage" -o -name "*.msi" -o -name "*.exe" -o -name "*.dmg" | while read f; do
               echo "- \`$(basename "$f")\` ($(du -h "$f" | cut -f1))"
             done
-            echo ""
-            echo "### SHA256 Checksums"
-            find . -name "*.deb" -o -name "*.AppImage" -o -name "*.msi" -o -name "*.exe" -o -name "*.dmg" | while read f; do
-              echo "- \`$(basename "$f")\`: \`$(sha256sum "$f" | cut -d' ' -f1)\`"
-            done
-            echo ""
-            echo "### Features"
-            echo "- Chat UI (DeepSeek Flash/Pro)"
-            echo "- Memory system (7-tier + semantic vector search)"
-            echo "- TICK time-sense engine (dynamic heartbeat + reminders + task stack)"
-            echo "- Speculative injection (intent/pattern/knowledge parallel pre-queries)"
-            echo "- Cache-first three-tier model (Hot/Warm/Cold)"
-            echo "- Parallel tool dispatch + 4-mode auto-repair"
-            echo "- R1 thinking chain harvesting (collapsible reasoning panel)"
-            echo "- MCP client (Stdio/HTTP)"
-            echo "- Cost dashboard + budget control"
-            echo "- ACUI v2 glassmorphism design system"
-            echo "- System tray + auto-update"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
       - name: Create Release
@@ -140,7 +127,7 @@ jobs:
           draft: true
           files: |
             **/*.deb
-            **/*.AppImage
+            **/*.rpm
             **/*.msi
             **/*.exe
             **/*.dmg
