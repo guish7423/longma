@@ -4,8 +4,6 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::Emitter;
-#[cfg(not(mobile))]
-use tauri::Manager;
 
 pub struct TickEngine {
     config: TickConfig,
@@ -123,6 +121,7 @@ impl TickEngine {
         });
     }
 
+    #[allow(dead_code)]
     pub fn stop(&self) {
         self.running.store(false, Ordering::SeqCst);
     }
@@ -142,11 +141,13 @@ impl TickEngine {
         });
     }
 
+    #[allow(dead_code)]
     pub fn set_task_mode(&self) {
         let mut mode = self.mode.lock().unwrap();
         *mode = TickMode::Task;
     }
 
+    #[allow(dead_code)]
     pub fn set_idle_mode(&self) {
         let mut mode = self.mode.lock().unwrap();
         *mode = TickMode::Idle;

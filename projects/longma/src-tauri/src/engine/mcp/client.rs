@@ -195,6 +195,7 @@ impl McpManager {
     }
 
     /// Refresh tools for a specific server
+    #[allow(dead_code)]
     pub async fn refresh_tools(&mut self, name: &str) -> Result<(), String> {
         if let Some(session) = self.sessions.get_mut(name) {
             session.refresh_tools().await

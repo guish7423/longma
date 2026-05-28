@@ -2,11 +2,13 @@ use crate::memory::store::MemoryStore;
 use crate::memory::types::*;
 
 /// Extracts and stores memories from conversation interactions.
+#[allow(dead_code)]
 pub struct Writer;
 
 impl Writer {
     /// Extract potential memories from a user message and store them.
     /// Returns count of memories written.
+    #[allow(dead_code)]
     pub fn extract_and_store(
         user_message: &str,
         assistant_response: &str,

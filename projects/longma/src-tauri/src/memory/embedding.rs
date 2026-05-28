@@ -20,6 +20,7 @@ fn get_embedder() -> Option<&'static Mutex<TextEmbedding>> {
     EMBEDDER.get()
 }
 
+#[allow(dead_code)]
 pub fn is_available() -> bool {
     get_embedder().is_some()
 }
@@ -65,4 +66,70 @@ pub fn blob_to_vec(blob: &[u8]) -> Option<Vec<f32>> {
     blob.chunks(4)
         .map(|chunk| Some(f32::from_le_bytes(chunk.try_into().ok()?)))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cosine_similarity_identical() {
+        let a = vec![1.0, 0.0, 0.0];
+        let b = vec![1.0, 0.0, 0.0];
+        let sim = cosine_similarity(&a, &b);
+        assert!((sim - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_cosine_similarity_orthogonal() {
+        let a = vec![1.0, 0.0];
+        let b = vec![0.0, 1.0];
+        let sim = cosine_similarity(&a, &b);
+        assert!((sim - 0.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_cosine_similarity_opposite() {
+        let a = vec![1.0, 2.0];
+        let b = vec![-1.0, -2.0];
+        let sim = cosine_similarity(&a, &b);
+        assert!((sim - (-1.0)).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_cosine_similarity_empty() {
+        assert_eq!(cosine_similarity(&[], &[]), 0.0);
+    }
+
+    #[test]
+    fn test_cosine_similarity_zero_vector() {
+        let a = vec![0.0, 0.0];
+        let b = vec![1.0, 2.0];
+        assert_eq!(cosine_similarity(&a, &b), 0.0);
+    }
+
+    #[test]
+    fn test_vec_to_blob_roundtrip() {
+        let original = vec![1.5, -2.5, 0.0, 3.14];
+        let blob = vec_to_blob(&original);
+        assert_eq!(blob.len(), original.len() * 4);
+        let recovered = blob_to_vec(&blob).unwrap();
+        assert_eq!(original.len(), recovered.len());
+        for (a, b) in original.iter().zip(recovered.iter()) {
+            assert!((a - b).abs() < 0.001);
+        }
+    }
+
+    #[test]
+    fn test_blob_to_vec_invalid_length() {
+        let blob = vec![0u8, 1u8, 2u8]; // 3 bytes, not divisible by 4
+        assert!(blob_to_vec(&blob).is_none());
+    }
+
+    #[test]
+    fn test_blob_to_vec_empty() {
+        let blob: Vec<u8> = vec![];
+        let result = blob_to_vec(&blob).unwrap();
+        assert!(result.is_empty());
+    }
 }

@@ -24,6 +24,7 @@ const MIGRATE_EMBEDDING: &str = "ALTER TABLE memory_items ADD COLUMN embedding B
 
 pub struct MemoryStore {
     db: Database,
+    skip_embedding: bool,
 }
 
 fn row_to_memory_item(row: &rusqlite::Row) -> rusqlite::Result<MemoryItem> {
@@ -45,7 +46,23 @@ fn row_to_memory_item(row: &rusqlite::Row) -> rusqlite::Result<MemoryItem> {
 impl MemoryStore {
     pub fn new() -> Result<Self, String> {
         let db = Database::new().map_err(|e| e.to_string())?;
-        let store = Self { db };
+        let store = Self { db, skip_embedding: false };
+        store.init()?;
+        Ok(store)
+    }
+
+    /// Create with an existing Database (used for testing with in-memory DB)
+    #[allow(dead_code)]
+    pub fn with_db(db: Database) -> Result<Self, String> {
+        let store = Self { db, skip_embedding: false };
+        store.init()?;
+        Ok(store)
+    }
+
+    /// Create with embedding disabled (for tests to avoid ONNX model download)
+    #[cfg(test)]
+    pub fn with_db_no_embed(db: Database) -> Result<Self, String> {
+        let store = Self { db, skip_embedding: true };
         store.init()?;
         Ok(store)
     }
@@ -64,8 +81,12 @@ impl MemoryStore {
             serde_json::to_string(&item.tags).map_err(|e| format!("Tag serialization error: {e}"))?;
         let now = chrono::Utc::now().timestamp();
 
-        // Generate embedding if available
-        let embedding_blob = embedding::generate(&item.content).map(|v| embedding::vec_to_blob(&v));
+        // Generate embedding if available (skip in test mode)
+        let embedding_blob = if self.skip_embedding {
+            None
+        } else {
+            embedding::generate(&item.content).map(|v| embedding::vec_to_blob(&v))
+        };
 
         let conn = self.db.conn.lock().map_err(|e| e.to_string())?;
         conn.execute(
@@ -145,9 +166,10 @@ impl MemoryStore {
         }
 
         // Re-rank by semantic similarity if embedding is available and we have a query text
-        if let Some(ref keywords) = query.keywords {
-            let query_text = keywords.join(" ");
-            if let Some(query_vec) = embedding::generate(&query_text) {
+        if !self.skip_embedding {
+            if let Some(ref keywords) = query.keywords {
+                let query_text = keywords.join(" ");
+                if let Some(query_vec) = embedding::generate(&query_text) {
                 // Score each item: 0.6 * semantic + 0.4 * strength (not yet used for sorting, just computed)
                 for item in &results {
                     if let Ok(Some(loaded)) = self.get_with_embedding(item.id.unwrap_or(0)) {
@@ -157,6 +179,7 @@ impl MemoryStore {
                     }
                 }
             }
+        }
         }
 
         results.truncate(query.limit);
@@ -210,6 +233,7 @@ impl MemoryStore {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get(&self, id: i64) -> Result<Option<MemoryItem>, String> {
         let conn = self.db.conn.lock().map_err(|e| e.to_string())?;
         let mut stmt = conn
@@ -236,6 +260,7 @@ impl MemoryStore {
         }
     }
 
+    #[allow(dead_code)]
     pub fn update_strength(&self, id: i64, delta: f32) -> Result<(), String> {
         let conn = self.db.conn.lock().map_err(|e| e.to_string())?;
         conn.execute(
@@ -297,5 +322,163 @@ impl MemoryStore {
         conn.execute("DELETE FROM memory_items WHERE id = ?1", params![id])
             .map_err(|e| format!("Delete error: {e}"))?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::store::Database;
+
+    fn test_store() -> MemoryStore {
+        let db = Database::new_in_memory().unwrap();
+        MemoryStore::with_db_no_embed(db).unwrap()
+    }
+
+    fn test_item() -> MemoryItem {
+        MemoryItem {
+            id: None,
+            category: MemoryCategory::Knowledge,
+            content: "Test memory content".into(),
+            tags: vec!["test".into(), "unit".into()],
+            source: "test".into(),
+            strength: 0.5,
+            created_at: 0,
+            accessed_at: 0,
+            ttl: None,
+        }
+    }
+
+    #[test]
+    fn test_insert_and_get() {
+        let store = test_store();
+        let id = store.insert(&test_item()).unwrap();
+        assert!(id > 0);
+
+        let retrieved = store.get(id).unwrap().unwrap();
+        assert_eq!(retrieved.content, "Test memory content");
+        assert_eq!(retrieved.category, MemoryCategory::Knowledge);
+        assert_eq!(retrieved.tags, vec!["test", "unit"]);
+    }
+
+    #[test]
+    fn test_insert_and_get_nonexistent() {
+        let store = test_store();
+        let result = store.get(999).unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_search_by_category() {
+        let store = test_store();
+        store.insert(&test_item()).unwrap();
+
+        let mut other = test_item();
+        other.category = MemoryCategory::Experience;
+        other.content = "Experience memory".into();
+        store.insert(&other).unwrap();
+
+        let results = store.list_by_category(&MemoryCategory::Knowledge).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].content, "Test memory content");
+    }
+
+    #[test]
+    fn test_search_by_keyword() {
+        let store = test_store();
+        store.insert(&test_item()).unwrap();
+
+        let query = MemoryQuery {
+            keywords: Some(vec!["memory".into()]),
+            limit: 10,
+            ..Default::default()
+        };
+        let results = store.search(&query).unwrap();
+        assert!(!results.is_empty());
+        assert!(results.iter().any(|m| m.content.contains("memory")));
+    }
+
+    #[test]
+    fn test_update_strength() {
+        let store = test_store();
+        let id = store.insert(&test_item()).unwrap();
+        store.update_strength(id, 0.3).unwrap();
+        let retrieved = store.get(id).unwrap().unwrap();
+        assert!((retrieved.strength - 0.8).abs() < 0.001); // 0.5 + 0.3 = 0.8
+    }
+
+    #[test]
+    fn test_update_strength_clamped() {
+        let store = test_store();
+        let id = store.insert(&test_item()).unwrap();
+        store.update_strength(id, 10.0).unwrap(); // Should clamp to 1.0
+        let retrieved = store.get(id).unwrap().unwrap();
+        assert!((retrieved.strength - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_delete() {
+        let store = test_store();
+        let id = store.insert(&test_item()).unwrap();
+        store.delete(id).unwrap();
+        let retrieved = store.get(id).unwrap();
+        assert!(retrieved.is_none());
+    }
+
+    #[test]
+    fn test_delete_expired() {
+        let store = test_store();
+        let mut expired = test_item();
+        expired.ttl = Some(0); // Already expired (epoch)
+        expired.content = "Expired item".into();
+        store.insert(&expired).unwrap();
+
+        store.insert(&test_item()).unwrap();
+
+        let deleted = store.delete_expired().unwrap();
+        assert_eq!(deleted, 1);
+    }
+
+    #[test]
+    fn test_decay() {
+        let store = test_store();
+        let _id = store.insert(&test_item()).unwrap();
+
+        // Force accessed_at to be old by setting directly via raw SQL
+        {
+            let _db = Database::new_in_memory().unwrap();
+            // Can't directly access conn, use store's insert first then test
+        }
+
+        // Decay should not affect freshly inserted items
+        let count = store.decay().unwrap();
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn test_list_by_category_empty() {
+        let store = test_store();
+        let results = store.list_by_category(&MemoryCategory::Tool).unwrap();
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_search_with_tag_filter() {
+        let store = test_store();
+        store.insert(&test_item()).unwrap();
+
+        let mut tagged = test_item();
+        tagged.tags = vec!["special".into()];
+        tagged.content = "Special content".into();
+        store.insert(&tagged).unwrap();
+
+        let query = MemoryQuery {
+            tags: Some(vec!["special".into()]),
+            limit: 10,
+            ..Default::default()
+        };
+        let results = store.search(&query).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].content, "Special content");
     }
 }

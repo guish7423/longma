@@ -64,3 +64,79 @@ impl Recognizer {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_recognize_identity_question() {
+        let query = Recognizer::recognize("你是谁");
+        assert!(query.categories.is_some());
+        let cats = query.categories.unwrap();
+        assert!(cats.contains(&MemoryCategory::SystemPrompt));
+        assert!(cats.contains(&MemoryCategory::Persona));
+    }
+
+    #[test]
+    fn test_recognize_capability_question() {
+        let query = Recognizer::recognize("你能做什么");
+        assert!(query.categories.is_some());
+        let cats = query.categories.unwrap();
+        assert!(cats.contains(&MemoryCategory::Capability));
+    }
+
+    #[test]
+    fn test_recognize_memory_request() {
+        let query = Recognizer::recognize("我记得上次的事情");
+        assert!(query.categories.is_some());
+        let cats = query.categories.unwrap();
+        assert!(cats.contains(&MemoryCategory::Experience));
+    }
+
+    #[test]
+    fn test_recognize_settings_request() {
+        let query = Recognizer::recognize("设置温度到0.7");
+        assert!(query.categories.is_some());
+        let cats = query.categories.unwrap();
+        assert!(cats.contains(&MemoryCategory::Tool));
+    }
+
+    #[test]
+    fn test_recognize_unknown_input() {
+        let query = Recognizer::recognize("hello world");
+        assert!(query.categories.is_none());
+        assert!(query.keywords.is_some());
+    }
+
+    #[test]
+    fn test_recognize_keyword_extraction() {
+        let query = Recognizer::recognize("教我关于Rust编程");
+        assert!(query.keywords.is_some());
+        let keywords = query.keywords.unwrap();
+        // Chinese text has no spaces, so the entire string is one keyword (lowercased)
+        assert!(keywords.contains(&"教我关于rust编程".to_string()));
+    }
+
+    #[test]
+    fn test_recognize_short_words_filtered() {
+        let query = Recognizer::recognize("a an is on");
+        assert!(query.keywords.is_some());
+        let keywords = query.keywords.unwrap();
+        assert!(keywords.is_empty());
+    }
+
+    #[test]
+    fn test_recognize_empty_input() {
+        let query = Recognizer::recognize("");
+        assert!(query.categories.is_none());
+        assert!(query.keywords.is_some());
+        assert!(query.keywords.unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_recognize_default_limit() {
+        let query = Recognizer::recognize("hello");
+        assert_eq!(query.limit, 5);
+    }
+}

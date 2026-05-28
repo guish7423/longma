@@ -152,3 +152,68 @@ impl JsonRpcRequest {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_jsonrpc_request_serialization() {
+        let req = JsonRpcRequest::new(1, "ping", None);
+        let json = serde_json::to_string(&req).unwrap();
+        assert!(json.contains("\"jsonrpc\":\"2.0\""));
+        assert!(json.contains("\"method\":\"ping\""));
+        assert!(json.contains("\"id\":1"));
+    }
+
+    #[test]
+    fn test_initialize_request() {
+        let req = JsonRpcRequest::initialize("LongMa", "1.0.0", 1);
+        assert_eq!(req.method, "initialize");
+        let params = req.params.unwrap();
+        assert_eq!(params["protocolVersion"], "2025-03-26");
+        assert_eq!(params["clientInfo"]["name"], "LongMa");
+    }
+
+    #[test]
+    fn test_list_tools_request() {
+        let req = JsonRpcRequest::list_tools(2);
+        assert_eq!(req.method, "tools/list");
+        assert_eq!(req.id, 2);
+    }
+
+    #[test]
+    fn test_call_tool_request() {
+        let args = serde_json::json!({"query": "hello"});
+        let req = JsonRpcRequest::call_tool(3, "search", args);
+        assert_eq!(req.method, "tools/call");
+        let params = req.params.unwrap();
+        assert_eq!(params["name"], "search");
+        assert_eq!(params["arguments"]["query"], "hello");
+    }
+
+    #[test]
+    fn test_initialized_notification() {
+        let req = JsonRpcRequest::initialized(4);
+        assert_eq!(req.method, "notifications/initialized");
+        assert!(req.params.is_none());
+    }
+
+    #[test]
+    fn test_jsonrpc_response_parse() {
+        let json = r#"{"jsonrpc":"2.0","id":1,"result":{"status":"ok"}}"#;
+        let resp: JsonRpcResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.id, 1);
+        assert!(resp.error.is_none());
+        assert_eq!(resp.result.unwrap()["status"], "ok");
+    }
+
+    #[test]
+    fn test_jsonrpc_response_error() {
+        let json = r#"{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}"#;
+        let resp: JsonRpcResponse = serde_json::from_str(json).unwrap();
+        assert!(resp.result.is_none());
+        let err = resp.error.unwrap();
+        assert_eq!(err.code, -32601);
+    }
+}

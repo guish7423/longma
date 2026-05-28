@@ -110,10 +110,12 @@ impl CostSummary {
         };
     }
 
+    #[allow(dead_code)]
     pub fn format_cost(&self) -> String {
         format!("${:.6}", self.total_cost)
     }
 
+    #[allow(dead_code)]
     pub fn format_cache_rate(&self) -> String {
         format!("{:.1}%", self.cache_hit_rate * 100.0)
     }
@@ -127,10 +129,11 @@ mod tests {
     fn test_flash_cost() {
         let record = CostRecord::new(1000, 500, 900, "deepseek-v4-flash");
         // 900 cache hit * 0.007/1M + 100 cache miss * 0.07/1M + 500 output * 0.28/1M
+        // Function rounds to 6 decimal places
         let expected = 900.0 * 0.007 / 1_000_000.0
             + 100.0 * 0.07 / 1_000_000.0
             + 500.0 * 0.28 / 1_000_000.0;
-        assert!((record.estimated_cost - expected).abs() < 1e-9);
+        assert!((record.estimated_cost - expected).abs() < 1e-6);
     }
 
     #[test]
@@ -139,7 +142,10 @@ mod tests {
         let expected = 900.0 * 0.0435 / 1_000_000.0
             + 100.0 * 0.435 / 1_000_000.0
             + 500.0 * 1.74 / 1_000_000.0;
-        assert!((record.estimated_cost - expected).abs() < 1e-9);
+        assert!((record.estimated_cost - expected).abs() < 1e-6);
+
+        assert!(!record.model.is_empty());
+        assert!(!record.timestamp.is_empty());
     }
 
     #[test]

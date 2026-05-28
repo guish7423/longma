@@ -6,6 +6,7 @@ use std::time::Duration;
 
 pub const API_BASE: &str = "https://api.deepseek.com";
 pub const MODEL_FLASH: &str = "deepseek-v4-flash";
+#[allow(dead_code)]
 pub const MODEL_PRO: &str = "deepseek-v4-pro";
 
 // ---------- API Types ----------
@@ -261,5 +262,103 @@ impl DeepSeekClient {
         });
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_system_prompt() {
+        let prompt = build_system_prompt();
+        assert!(prompt.contains("LongMa"));
+        assert!(prompt.contains("DeepSeek"));
+    }
+
+    #[test]
+    fn test_build_messages_empty() {
+        let msgs = build_messages(vec![]);
+        assert_eq!(msgs.len(), 1);
+        assert_eq!(msgs[0].role, "system");
+        assert!(msgs[0].content.contains("LongMa"));
+    }
+
+    #[test]
+    fn test_build_messages_with_history() {
+        let history = vec![
+            ChatMessage { role: "user".into(), content: "hello".into() },
+            ChatMessage { role: "assistant".into(), content: "hi".into() },
+        ];
+        let msgs = build_messages(history);
+        assert_eq!(msgs.len(), 3);
+        assert_eq!(msgs[0].role, "system");
+        assert_eq!(msgs[1].content, "hello");
+        assert_eq!(msgs[2].content, "hi");
+    }
+
+    #[test]
+    fn test_stream_chunk_deserialization() {
+        let json = r#"{"content":"Hello","reasoning_content":null,"finish_reason":null,"input_tokens":10,"output_tokens":5,"cache_hit_tokens":3,"done":false}"#;
+        let chunk: StreamChunk = serde_json::from_str(json).unwrap();
+        assert_eq!(chunk.content, "Hello");
+        assert!(!chunk.done);
+        assert_eq!(chunk.input_tokens, 10);
+        assert_eq!(chunk.cache_hit_tokens, 3);
+    }
+
+    #[test]
+    fn test_stream_chunk_done_signal() {
+        let json = r#"{"content":"","reasoning_content":null,"finish_reason":"stop","input_tokens":100,"output_tokens":50,"cache_hit_tokens":80,"done":true}"#;
+        let chunk: StreamChunk = serde_json::from_str(json).unwrap();
+        assert!(chunk.done);
+        assert_eq!(chunk.finish_reason.unwrap(), "stop");
+    }
+
+    #[test]
+    fn test_chat_message_serialization() {
+        let msg = ChatMessage { role: "user".into(), content: "test".into() };
+        let json = serde_json::to_string(&msg).unwrap();
+        assert!(json.contains("\"role\":\"user\""));
+        assert!(json.contains("\"content\":\"test\""));
+    }
+
+    #[test]
+    fn test_chat_request_serialization() {
+        let req = ChatRequest {
+            model: "deepseek-v4-flash".into(),
+            messages: vec![ChatMessage { role: "user".into(), content: "hi".into() }],
+            stream: true,
+            temperature: None,
+            max_tokens: None,
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        assert!(json.contains("deepseek-v4-flash"));
+        assert!(json.contains("\"stream\":true"));
+    }
+
+    #[test]
+    fn test_usage_deserialization() {
+        let json = r#"{"prompt_tokens":10,"completion_tokens":20,"prompt_tokens_details":{"cached_tokens":5}}"#;
+        let usage: Usage = serde_json::from_str(json).unwrap();
+        assert_eq!(usage.prompt_tokens, 10);
+        assert_eq!(usage.completion_tokens, 20);
+        assert_eq!(usage.prompt_tokens_details.cached_tokens, 5);
+    }
+
+    #[test]
+    fn test_usage_default_cached_tokens() {
+        let json = r#"{"prompt_tokens":10,"completion_tokens":20}"#;
+        let usage: Usage = serde_json::from_str(json).unwrap();
+        assert_eq!(usage.prompt_tokens_details.cached_tokens, 0);
+    }
+
+    #[test]
+    fn test_chat_response_deserialization() {
+        let json = r#"{"id":"chat-123","choices":[{"message":{"role":"assistant","content":"Hello!"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":5}}"#;
+        let resp: ChatResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.id, "chat-123");
+        assert_eq!(resp.choices.len(), 1);
+        assert_eq!(resp.choices[0].message.content, "Hello!");
     }
 }

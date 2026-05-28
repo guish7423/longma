@@ -37,6 +37,17 @@ async fn chat_stream(
     if config.api_key.is_empty() {
         return Err("API key not configured. Please set your DeepSeek API key in settings.".into());
     }
+
+    // Budget check — if over budget, fail early
+    {
+        let tracker = BUDGET_TRACKER.lock().unwrap();
+        if let Some(remaining) = tracker.remaining_budget() {
+            if remaining <= 0.0 {
+                return Err("Daily budget exceeded. Reset budget in settings or wait until tomorrow.".into());
+            }
+        }
+    }
+
     let temp = temperature.unwrap_or(config.temperature);
     let max_tok = max_tokens.unwrap_or(config.max_tokens);
 
@@ -499,6 +510,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(tick_engine.clone())
         .invoke_handler(tauri::generate_handler![
             get_app_info,

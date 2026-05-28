@@ -73,6 +73,7 @@ impl Default for MemoryQuery {
 
 /// MemoryItem with its embedding vector (separate for efficiency)
 pub struct MemoryItemWithEmbedding {
+    #[allow(dead_code)]
     pub item: MemoryItem,
     pub embedding: Option<Vec<f32>>,
 }

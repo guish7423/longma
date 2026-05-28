@@ -45,6 +45,7 @@ pub struct StdioTransport {
     child: Option<Child>,
     stdin: Option<tokio::process::ChildStdin>,
     stdout_reader: Option<tokio::io::Lines<BufReader<tokio::process::ChildStdout>>>,
+    #[allow(dead_code)]
     next_id: u64,
 }
 

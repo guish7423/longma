@@ -63,6 +63,7 @@ impl BudgetState {
     }
 
     /// Check if we've exceeded the daily budget
+    #[allow(dead_code)]
     pub fn is_over_budget(&self) -> bool {
         match self.daily_budget_usd {
             Some(limit) => self.daily_spend >= limit,
@@ -71,6 +72,7 @@ impl BudgetState {
     }
 
     /// Check if budget is close to limit (80% or more)
+    #[allow(dead_code)]
     pub fn is_nearing_budget(&self) -> bool {
         match self.daily_budget_usd {
             Some(limit) => self.daily_spend >= limit * 0.8,
@@ -79,17 +81,20 @@ impl BudgetState {
     }
 
     /// Should we compress this conversation's context?
+    #[allow(dead_code)]
     pub fn should_compress(&self, total_tokens: u32) -> bool {
         self.auto_compress && total_tokens > self.compress_threshold
     }
 
     /// Should we upgrade from Flash to Pro?
     /// Criteria: Flash failed 2+ times in a row, or task is complex
+    #[allow(dead_code)]
     pub fn should_upgrade(&self) -> bool {
         self.failed_requests >= 2
     }
 
     /// Get remaining budget for today
+    #[allow(dead_code)]
     pub fn remaining_budget(&self) -> Option<f64> {
         self.daily_budget_usd.map(|limit| (limit - self.daily_spend).max(0.0))
     }
@@ -97,6 +102,7 @@ impl BudgetState {
 
 /// Budget configuration (stored in config)
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct BudgetConfig {
     pub daily_budget_usd: Option<f64>,
     pub auto_compress: bool,
@@ -150,7 +156,8 @@ mod tests {
     #[test]
     fn test_nearing_budget() {
         let mut budget = BudgetState::new(Some(1.0));
-        budget.record_spend(0.75, 1);
+        // Nearing = 80% of limit = $0.80
+        budget.record_spend(0.80, 1);
         assert!(budget.is_nearing_budget());
         assert!(!budget.is_over_budget());
     }

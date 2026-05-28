@@ -14,6 +14,8 @@ export interface ChatMessage {
     total: number;
     cacheHitRatio: number;
   };
+  /** True when message was served from local cache, not API */
+  cached?: boolean;
 }
 
 interface StreamChunk {
@@ -34,6 +36,8 @@ interface ChatState {
   conversations: { id: number; title: string }[];
   currentConversationId: number | null;
   abortController: AbortController | null;
+  /** Whether budget is exhausted and chat is blocked */
+  budgetBlocked: boolean;
 
   sendMessage: (content: string) => Promise<void>;
   clearMessages: () => void;
@@ -53,6 +57,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   conversations: [],
   currentConversationId: null,
   abortController: null,
+  budgetBlocked: false,
 
   stopStreaming: () => {
     const { abortController } = get();
@@ -113,6 +118,51 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const session = useSessionStore.getState();
     if (!session.hasApiKey) return;
 
+    // ── 1. Budget Check ────────────────────────────────────────────
+    try {
+      const budget = await invoke<any>('get_budget_status');
+      if (budget.daily_budget_usd !== null) {
+        const remaining = budget.daily_budget_usd - budget.daily_spend;
+        if (remaining <= 0) {
+          set({ budgetBlocked: true });
+          session.setAgentState('error');
+          return;
+        }
+        set({ budgetBlocked: false });
+      }
+    } catch {
+      // Budget check is advisory; continue if it fails
+    }
+
+    // ── 2. TICK Activity Notification ──────────────────────────────
+    try {
+      await invoke('notify_activity');
+    } catch {
+      // Non-critical
+    }
+
+    // ── 3. Cache Lookup (hot-cache fast path) ──────────────────────
+    const cacheKey = `q:${content.trim().toLowerCase().slice(0, 200)}`;
+    try {
+      const cached = await invoke<[string, string] | null>('cache_lookup', { key: cacheKey });
+      if (cached) {
+        const [cachedContent] = cached;
+        const userMessage: ChatMessage = { role: 'user', content };
+        const cachedMsg: ChatMessage = {
+          role: 'assistant',
+          content: cachedContent,
+          cached: true,
+          tokens: { input: 0, output: 0, cacheHit: 0, total: 0, cacheHitRatio: 0 },
+        };
+        set({
+          messages: [...messages, userMessage, cachedMsg],
+        });
+        return;
+      }
+    } catch {
+      // Cache miss or unavailable — proceed to API call
+    }
+
     const userMessage: ChatMessage = { role: 'user', content };
     const updatedMessages = [...messages, userMessage];
     set({
@@ -122,7 +172,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
     session.setAgentState('thinking');
 
-    // Listen for stream chunks
+    // ── 4. Listen for stream chunks ────────────────────────────────
     const unlisten = await listen<StreamChunk>('chat-chunk', (event) => {
       const chunk = event.payload;
       const state = get();
@@ -146,6 +196,31 @@ export const useChatStore = create<ChatState>((set, get) => ({
         };
 
         session.updateStats(chunk.input_tokens, chunk.output_tokens, chunk.cache_hit_tokens);
+
+        // ── 5. Record Budget Spend ──────────────────────────────
+        try {
+          const inputCost = (chunk.input_tokens / 1_000_000) * 0.15;
+          const outputCost = (chunk.output_tokens / 1_000_000) * 0.60;
+          invoke('record_budget_spend', {
+            cost: inputCost + outputCost,
+            conversationId: 0, // Will be replaced with real ID when available
+          });
+        } catch {
+          // Non-critical
+        }
+
+        // ── 6. Cache Insert ──────────────────────────────────────
+        if (fullContent.trim()) {
+          try {
+            invoke('cache_insert', {
+              key: cacheKey,
+              content: fullContent,
+              tokenCount: chunk.output_tokens,
+            });
+          } catch {
+            // Non-critical
+          }
+        }
 
         set({
           messages: [...state.messages, assistantMessage],
@@ -178,6 +253,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       });
     } catch (error) {
       const state = get();
+
+      // ── 7. Record Budget Failure ──────────────────────────────
+      try {
+        await invoke('record_budget_failure');
+      } catch {
+        // Non-critical
+      }
+
       set({
         isStreaming: false,
         streamingContent: '',

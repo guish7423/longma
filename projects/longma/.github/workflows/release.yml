@@ -1,0 +1,128 @@
+name: Release LongMa
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag name for release'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  generate-updater:
+    name: Generate updater.json
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: get_version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+  build-linux:
+    name: Build Linux
+    needs: generate-updater
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - uses: dtolnay/rust-toolchain@stable
+      - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+      - run: npm install
+      - run: npm test
+      - run: npm run tauri build
+      - run: echo "SIG=${{ github.server_url }}/${{ github.repository }}/releases/download/${{ github.ref_name }}/LongMa_${{ needs.generate-updater.outputs.version }}_amd64.deb" >> $GITHUB_ENV
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LongMa-Linux
+          path: src-tauri/target/release/bundle/
+
+  build-windows:
+    name: Build Windows
+    needs: generate-updater
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm install
+      - run: npm test
+      - run: npm run tauri build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LongMa-Windows
+          path: src-tauri/target/release/bundle/
+
+  build-macos:
+    name: Build macOS
+    needs: generate-updater
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm install
+      - run: npm test
+      - run: npm run tauri build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LongMa-macOS
+          path: src-tauri/target/release/bundle/
+
+  create-release:
+    name: Create Release
+    needs: [build-linux, build-windows, build-macos, generate-updater]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: LongMa-*
+          merge-multiple: true
+      - name: Generate Release Notes
+        id: notes
+        run: |
+          {
+            echo 'notes<<EOF'
+            echo "## LongMa v${{ needs.generate-updater.outputs.version }}"
+            echo ""
+            echo "### Downloads"
+            find . -name "*.deb" -o -name "*.AppImage" -o -name "*.msi" -o -name "*.exe" -o -name "*.dmg" | while read f; do
+              echo "- \`$(basename "$f")\` ($(du -h "$f" | cut -f1))"
+            done
+            echo ""
+            echo "### Checksums"
+            find . -name "*.deb" -o -name "*.AppImage" -o -name "*.msi" -o -name "*.exe" -o -name "*.dmg" | while read f; do
+              echo "- \`$(basename "$f")\`: \`$(sha256sum "$f" | cut -d' ' -f1)\`"
+            done
+            echo ""
+            echo "### Changelog"
+            git log --oneline $(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo HEAD~5)..HEAD 2>/dev/null || true
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "LongMa v${{ needs.generate-updater.outputs.version }}"
+          body: ${{ steps.notes.outputs.notes }}
+          draft: true
+          files: |
+            **/*.deb
+            **/*.AppImage
+            **/*.msi
+            **/*.exe
+            **/*.dmg

@@ -23,6 +23,7 @@ pub struct ToolParam {
 
 /// A concrete tool invocation produced by the model
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct ToolCall {
     pub id: String,
     pub tool_name: String,
@@ -32,6 +33,7 @@ pub struct ToolCall {
 
 /// The result of executing a ToolCall
 #[derive(Debug, Clone, Serialize)]
+#[allow(dead_code)]
 pub struct ToolResult {
     pub call_id: String,
     pub tool_name: String,
@@ -42,6 +44,7 @@ pub struct ToolResult {
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
+#[allow(dead_code)]
 pub enum ToolStatus {
     Success,
     Timeout,
@@ -66,6 +69,7 @@ impl std::fmt::Display for ToolStatus {
 
 /// Analysis of a tool call failure
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct FailureAnalysis {
     pub failure_mode: ToolStatus,
     pub is_recoverable: bool,
@@ -80,12 +84,14 @@ pub enum RepairStrategy {
     /// Retry with backoff (for rate limits)
     RetryWithBackoff { delay_ms: u64, max_retries: u32 },
     /// Fix parameters and retry
+    #[allow(dead_code)]
     FixParameters { suggested_fix: String },
     /// Cannot recover — inform model
     ReportFailure(String),
 }
 
 impl RepairStrategy {
+    #[allow(dead_code)]
     pub fn should_retry(&self) -> bool {
         matches!(self, RepairStrategy::Retry | RepairStrategy::RetryWithBackoff { .. } | RepairStrategy::FixParameters { .. })
     }
@@ -300,11 +306,13 @@ impl ToolEngine {
     }
 
     /// Get the timeout for a tool call from its definition
+    #[allow(dead_code)]
     fn get_timeout(&self, tool_name: &str) -> u64 {
         self.tools.get(tool_name).map(|t| t.timeout_ms).unwrap_or(10_000)
     }
 
     /// Execute a tool call with full repair pipeline.
+    #[allow(dead_code)]
     pub fn execute_with_repair(&mut self, call: &ToolCall) -> ToolResult {
         let start = Instant::now();
         let mut retry_count = 0u32;
@@ -390,6 +398,7 @@ impl ToolEngine {
     }
 
     /// Validate tool call parameters
+    #[allow(dead_code)]
     fn validate_call(&self, call: &ToolCall) -> Result<(), String> {
         let tool = self.tools.get(&call.tool_name)
             .ok_or_else(|| format!("Unknown tool: {}", call.tool_name))?;
@@ -410,6 +419,7 @@ impl ToolEngine {
     }
 
     /// Execute a single tool call (simulated — real MCP integration in Phase 3.2)
+    #[allow(dead_code)]
     fn execute_call(&self, call: &ToolCall, _timeout_ms: u64) -> Result<String, ToolStatus> {
         match call.tool_name.as_str() {
             "read_file" => {
@@ -435,11 +445,13 @@ impl ToolEngine {
     }
 
     /// Get retry history for a specific call
+    #[allow(dead_code)]
     pub fn get_retry_history(&self, call_id: &str) -> Vec<(ToolStatus, Instant)> {
         self.retry_history.get(call_id).cloned().unwrap_or_default()
     }
 
     /// Clear retry history
+    #[allow(dead_code)]
     pub fn clear_history(&mut self) {
         self.retry_history.clear();
     }
@@ -449,6 +461,7 @@ impl ToolEngine {
 
 /// Execute multiple independent tool calls concurrently.
 /// Uses Arc<Mutex<ToolEngine>> for safe shared access.
+#[allow(dead_code)]
 pub async fn execute_concurrent(
     engine: Arc<Mutex<ToolEngine>>,
     calls: Vec<ToolCall>,
@@ -485,6 +498,7 @@ pub async fn execute_concurrent(
 }
 
 /// Sequential execution of tool calls (simpler, no threading)
+#[allow(dead_code)]
 pub fn execute_sequential(engine: &mut ToolEngine, calls: &[ToolCall]) -> Vec<ToolResult> {
     calls.iter().map(|call| engine.execute_with_repair(call)).collect()
 }

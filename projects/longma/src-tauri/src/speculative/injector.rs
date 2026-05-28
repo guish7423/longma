@@ -168,3 +168,93 @@ impl SpeculativeInjector {
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_analyze_intent_question() {
+        let result = SpeculativeInjector::analyze_intent("如何学习Rust？");
+        assert!(result.is_some());
+        let r = result.unwrap();
+        assert_eq!(r.task_type, "intent_analysis");
+        assert!(r.content.contains("question"));
+    }
+
+    #[test]
+    fn test_analyze_intent_english_question() {
+        let result = SpeculativeInjector::analyze_intent("what is Rust?");
+        assert!(result.is_some());
+        let r = result.unwrap();
+        assert!(r.content.contains("question"));
+    }
+
+    #[test]
+    fn test_analyze_intent_settings() {
+        let result = SpeculativeInjector::analyze_intent("设置温度到0.7");
+        assert!(result.is_some());
+        let r = result.unwrap();
+        assert!(r.content.contains("settings"));
+    }
+
+    #[test]
+    fn test_analyze_intent_command() {
+        let result = SpeculativeInjector::analyze_intent("帮我写一段代码");
+        assert!(result.is_some());
+        let r = result.unwrap();
+        assert!(r.content.contains("command"));
+    }
+
+    #[test]
+    fn test_analyze_intent_english_command() {
+        let result = SpeculativeInjector::analyze_intent("run the test suite");
+        assert!(result.is_some());
+        let r = result.unwrap();
+        assert!(r.content.contains("command"));
+    }
+
+    #[test]
+    fn test_analyze_intent_chat_default() {
+        let result = SpeculativeInjector::analyze_intent("今天天气真好");
+        assert!(result.is_some());
+        let r = result.unwrap();
+        assert!(r.content.contains("chat"));
+    }
+
+    #[test]
+    fn test_analyze_intent_capability() {
+        let result = SpeculativeInjector::analyze_intent("你能做什么");
+        assert!(result.is_some());
+        let r = result.unwrap();
+        assert!(r.content.contains("capability"));
+    }
+
+    #[test]
+    fn test_run_returns_intent_analysis() {
+        // run() triggers embedded search; test intent analysis separately
+        assert!(SpeculativeInjector::analyze_intent("你好").is_some());
+    }
+
+    #[test]
+    fn test_detect_patterns_no_repeat() {
+        let msg = crate::api::deepseek::ChatMessage {
+            role: "user".into(),
+            content: "hello".into(),
+        };
+        let result = SpeculativeInjector::detect_patterns("world", &[msg]);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_detect_patterns_repeat() {
+        let msg = crate::api::deepseek::ChatMessage {
+            role: "user".into(),
+            content: "hello".into(),
+        };
+        let result = SpeculativeInjector::detect_patterns("hello", &[msg]);
+        assert!(result.is_some());
+        let r = result.unwrap();
+        assert_eq!(r.task_type, "pattern_recognition");
+    }
+}

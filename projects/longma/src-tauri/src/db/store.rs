@@ -39,7 +39,38 @@ impl Database {
     pub fn new() -> Result<Self> {
         let path = db_path();
         let conn = Connection::open(&path)?;
+        Self::new_with_conn(conn)
+    }
 
+    #[allow(dead_code)]
+    pub fn new_in_memory() -> Result<Self> {
+        let conn = rusqlite::Connection::open_in_memory()?;
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS conversations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL DEFAULT 'New Conversation',
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+            CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                conversation_id INTEGER NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                reasoning_content TEXT,
+                tokens_in INTEGER DEFAULT 0,
+                tokens_out INTEGER DEFAULT 0,
+                cache_hit INTEGER DEFAULT 0,
+                cost REAL DEFAULT 0.0,
+                model TEXT DEFAULT 'deepseek-v4-flash',
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+            );"
+        ).unwrap();
+        Ok(Database { conn: Mutex::new(conn) })
+    }
+
+    fn new_with_conn(conn: Connection) -> Result<Self> {
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS conversations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,6 +96,7 @@ impl Database {
         })
     }
 
+    #[allow(dead_code)]
     pub fn create_conversation(&self, title: &str) -> Result<i64> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
@@ -90,6 +122,7 @@ impl Database {
         rows.collect()
     }
 
+    #[allow(dead_code)]
     pub fn delete_conversation(&self, id: i64) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute("DELETE FROM messages WHERE conversation_id = ?1", params![id])?;
@@ -97,6 +130,7 @@ impl Database {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn save_message(
         &self,
         conversation_id: i64,

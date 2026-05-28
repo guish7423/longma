@@ -1,6 +1,7 @@
 use serde::Serialize;
 
 #[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
 pub enum SpeculativeTask {
     IntentAnalysis,
     PatternRecognition,
@@ -17,6 +18,7 @@ pub struct SpeculativeResult {
 
 /// Intent categories the speculative system can detect
 #[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
 pub enum IntentCategory {
     Question,        // Asking about something
     Command,         // Giving an instruction
