@@ -37,8 +37,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
       - run: npm install
-      - run: cargo tauri build
-        working-directory: src-tauri
+      - run: npm run tauri build
       - uses: actions/upload-artifact@v4
         with:
           name: LongMa-Linux
@@ -56,8 +55,7 @@ jobs:
           cache: 'npm'
       - uses: dtolnay/rust-toolchain@stable
       - run: npm install
-      - run: cargo tauri build
-        working-directory: src-tauri
+      - run: npm run tauri build
       - uses: actions/upload-artifact@v4
         with:
           name: LongMa-Windows
@@ -75,8 +73,7 @@ jobs:
           cache: 'npm'
       - uses: dtolnay/rust-toolchain@stable
       - run: npm install
-      - run: cargo tauri build
-        working-directory: src-tauri
+      - run: npm run tauri build
       - uses: actions/upload-artifact@v4
         with:
           name: LongMa-macOS
