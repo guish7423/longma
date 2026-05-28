@@ -1,0 +1,144 @@
+name: Release LongMa
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag name for release'
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  PROJECT_DIR: projects/longma
+
+jobs:
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: ${{ env.PROJECT_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: ${{ env.PROJECT_DIR }}/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm install
+      - run: npm run tauri build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LongMa-Windows
+          path: ${{ env.PROJECT_DIR }}/src-tauri/target/release/bundle/
+
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.PROJECT_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: ${{ env.PROJECT_DIR }}/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+      - run: npm install
+      - run: npm test
+      - run: npm run tauri build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LongMa-Linux
+          path: ${{ env.PROJECT_DIR }}/src-tauri/target/release/bundle/
+
+  build-macos:
+    name: Build macOS
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: ${{ env.PROJECT_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: ${{ env.PROJECT_DIR }}/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm install
+      - run: npm test
+      - run: npm run tauri build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LongMa-macOS
+          path: ${{ env.PROJECT_DIR }}/src-tauri/target/release/bundle/
+
+  create-release:
+    name: Create Release
+    needs: [build-windows, build-linux, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: LongMa-*
+          merge-multiple: true
+      - name: Generate Release Notes
+        id: notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          {
+            echo 'notes<<EOF'
+            echo "## LongMa v${VERSION}"
+            echo ""
+            echo "专为 DeepSeek 模型优化的桌面伴侣型 AI Agent"
+            echo ""
+            echo "### 下载"
+            echo ""
+            find . -name "*.deb" -o -name "*.AppImage" -o -name "*.msi" -o -name "*.exe" -o -name "*.dmg" | while read f; do
+              echo "- \`$(basename "$f")\` ($(du -h "$f" | cut -f1))"
+            done
+            echo ""
+            echo "### 校验 (SHA256)"
+            echo ""
+            find . -name "*.deb" -o -name "*.AppImage" -o -name "*.msi" -o -name "*.exe" -o -name "*.dmg" | while read f; do
+              echo "- \`$(basename "$f")\`: \`$(sha256sum "$f" | cut -d' ' -f1)\`"
+            done
+            echo ""
+            echo "### 功能"
+            echo ""
+            echo "- 聊天界面 (DeepSeek Flash/Pro)" 
+            echo "- 记忆系统 (7层分类 + 语义向量搜索)"
+            echo "- TICK 时间感引擎 (动态心率 + 提醒 + 任务栈)"
+            echo "- 预判注入 (意图/模式/知识并行查询)"
+            echo "- 缓存优先三区模型 (Hot/Warm/Cold)"
+            echo "- 并行工具调度 + 4种故障修复"
+            echo "- R1 思维链收割 (可折叠推理面板)"
+            echo "- MCP 客户端 (Stdio/HTTP)"
+            echo "- 成本仪表盘 + 预算控制"
+            echo "- ACUI v2 设计系统 (玻璃态/辉光)"
+            echo "- 系统托盘 + 自动更新"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "LongMa v${{ github.ref_name }}"
+          body: ${{ steps.notes.outputs.notes }}
+          draft: true
+          files: |
+            **/*.deb
+            **/*.AppImage
+            **/*.msi
+            **/*.exe
+            **/*.dmg
