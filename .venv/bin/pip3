@@ -1,4 +1,4 @@
-#!/home/guish/.opencode-workspace/.hive/.worktrees/polsia-fork-backend/01-project-scaffolding/.venv/bin/python3
+#!/home/guish/.opencode-workspace/.hive/.worktrees/polsia-fork-backend/02-sqlalchemy-orm-models/.venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys

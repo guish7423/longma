@@ -9,7 +9,7 @@ alias deactivate 'test $?_OLD_VIRTUAL_PATH != 0 && setenv PATH "$_OLD_VIRTUAL_PA
 # Unset irrelevant variables.
 deactivate nondestructive
 
-setenv VIRTUAL_ENV /home/guish/.opencode-workspace/.hive/.worktrees/polsia-fork-backend/01-project-scaffolding/.venv
+setenv VIRTUAL_ENV /home/guish/.opencode-workspace/.hive/.worktrees/polsia-fork-backend/02-sqlalchemy-orm-models/.venv
 
 set _OLD_VIRTUAL_PATH="$PATH"
 setenv PATH "$VIRTUAL_ENV/"bin":$PATH"
