@@ -14,24 +14,25 @@ permissions:
   contents: read
 
 env:
-  PROJECT_DIR: projects/longma
+  CARGO_TERM_COLOR: always
 
 jobs:
   test:
     name: Test & Build
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ${{ env.PROJECT_DIR }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
-          cache-dependency-path: ${{ env.PROJECT_DIR }}/package-lock.json
+          cache-dependency-path: projects/longma/package-lock.json
       - uses: dtolnay/rust-toolchain@stable
-      - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
-      - run: npm install
-      - run: npm test
-      - run: npm run tauri build
+      - name: Install system deps
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+      - name: Install, Test, Build
+        run: |
+          cd projects/longma
+          npm install
+          npm test
+          npm run tauri build
