@@ -33,7 +33,7 @@ end
 # Unset irrelevant variables.
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV /home/guish/.opencode-workspace/.hive/.worktrees/polsia-fork-backend/01-project-scaffolding/.venv
+set -gx VIRTUAL_ENV /home/guish/.opencode-workspace/.hive/.worktrees/polsia-fork-backend/02-sqlalchemy-orm-models/.venv
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/"bin $PATH
