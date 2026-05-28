@@ -6,6 +6,7 @@ import { useSessionStore } from './session';
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
+  reasoningContent?: string;
   tokens?: {
     input: number;
     output: number;
@@ -17,6 +18,7 @@ export interface ChatMessage {
 
 interface StreamChunk {
   content: string;
+  reasoning_content: string | null;
   finish_reason: string | null;
   input_tokens: number;
   output_tokens: number;
@@ -28,6 +30,7 @@ interface ChatState {
   messages: ChatMessage[];
   isStreaming: boolean;
   streamingContent: string;
+  streamingReasoning: string;
   conversations: { id: number; title: string }[];
   currentConversationId: number | null;
   abortController: AbortController | null;
@@ -46,6 +49,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   isStreaming: false,
   streamingContent: '',
+  streamingReasoning: '',
   conversations: [],
   currentConversationId: null,
   abortController: null,
@@ -125,9 +129,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       if (chunk.done) {
         const fullContent = state.streamingContent;
+        const fullReasoning = state.streamingReasoning;
         const assistantMessage: ChatMessage = {
           role: 'assistant',
           content: fullContent,
+          reasoningContent: fullReasoning || undefined,
           tokens: {
             input: chunk.input_tokens,
             output: chunk.output_tokens,
@@ -145,6 +151,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           messages: [...state.messages, assistantMessage],
           isStreaming: false,
           streamingContent: '',
+          streamingReasoning: '',
         });
         session.setAgentState('idle');
         unlisten();
@@ -154,6 +161,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       set({
         streamingContent: state.streamingContent + chunk.content,
+        streamingReasoning: state.streamingReasoning + (chunk.reasoning_content || ''),
       });
     });
 

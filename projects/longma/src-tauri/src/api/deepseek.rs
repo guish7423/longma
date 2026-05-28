@@ -57,6 +57,7 @@ pub struct PromptTokensDetails {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct StreamChunk {
     pub content: String,
+    pub reasoning_content: Option<String>,
     pub finish_reason: Option<String>,
     #[serde(default)]
     pub input_tokens: u32,
@@ -201,6 +202,7 @@ impl DeepSeekClient {
                         // Emit final chunk with usage
                         let _ = app_handle.emit("chat-chunk", StreamChunk {
                             content: String::new(),
+                            reasoning_content: None,
                             finish_reason: Some("stop".into()),
                             input_tokens: total_input,
                             output_tokens: total_output,
@@ -217,6 +219,7 @@ impl DeepSeekClient {
                             for choice in choices {
                                 let delta = &choice["delta"];
                                 let content = delta["content"].as_str().unwrap_or("");
+                                let reasoning = delta["reasoning_content"].as_str();
                                 let finish = choice["finish_reason"].as_str();
 
                                 // Track usage from stream end
@@ -230,6 +233,7 @@ impl DeepSeekClient {
 
                                 let chunk = StreamChunk {
                                     content: content.to_string(),
+                                    reasoning_content: reasoning.map(|s| s.to_string()),
                                     finish_reason: finish.map(|s| s.to_string()),
                                     input_tokens: total_input,
                                     output_tokens: total_output,
@@ -248,6 +252,7 @@ impl DeepSeekClient {
         // Stream ended without [DONE] — emit done signal
         let _ = app_handle.emit("chat-chunk", StreamChunk {
             content: String::new(),
+            reasoning_content: None,
             finish_reason: Some("stop".into()),
             input_tokens: total_input,
             output_tokens: total_output,

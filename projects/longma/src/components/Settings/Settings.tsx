@@ -72,7 +72,7 @@ export default function Settings() {
                   sk-...{Array(32).fill('•').join('')}
                 </span>
               ) : (
-                <span style={{ color: 'var(--accent-danger)', fontSize: 13 }}>Not configured</span>
+                  <span style={{ color: 'var(--error)', fontSize: 13 }}>Not configured</span>
               )}
             </div>
             <button style={styles.secondaryBtn} onClick={() => setShowApiInput(true)}>
@@ -89,8 +89,18 @@ export default function Settings() {
                 placeholder="sk-..."
                 style={styles.monoInput}
               />
-              <button style={styles.iconBtn} onClick={() => setShowKey(!showKey)} title={showKey ? 'Hide' : 'Show'}>
-                {showKey ? '🙈' : '👁️'}
+              <button style={styles.iconBtn} onClick={() => setShowKey(!showKey)} title={showKey ? 'Hide' : 'Show'} className="click-scale">
+                {showKey ? (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                    <line x1="1" y1="1" x2="23" y2="23" />
+                  </svg>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                )}
               </button>
             </div>
             <div style={styles.btnRow}>
@@ -149,7 +159,7 @@ export default function Settings() {
           <span style={styles.sliderLabel}>1.0</span>
           <span style={{
             ...styles.sliderValue,
-            color: temperature > 0.8 ? 'var(--accent-danger)' : temperature > 0.5 ? 'var(--accent-warning)' : 'var(--accent-success)'
+            color: temperature > 0.8 ? 'var(--error)' : temperature > 0.5 ? 'var(--warning)' : 'var(--success)'
           }}>
             {temperature.toFixed(2)}
           </span>
@@ -199,9 +209,39 @@ export default function Settings() {
         </div>
       </section>
 
+      {/* Background Agent */}
+      <section style={styles.section}>
+        <h2 style={styles.sectionTitle}>Background Agent</h2>
+        <p style={styles.sectionDesc}>Agent will continue running even when the window is closed.</p>
+        <div style={styles.row}>
+          <div>
+            <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }}>Minimize to tray</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Closing the window hides LongMa to the system tray instead of quitting</div>
+          </div>
+          <label style={styles.toggle}>
+            <input type="checkbox" defaultChecked style={{ display: 'none' }} />
+            <div style={styles.toggleTrack(true)}>
+              <div style={styles.toggleThumb(true)} />
+            </div>
+          </label>
+        </div>
+        <div style={styles.row}>
+          <div>
+            <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }}>Background TICK</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Agent heartbeat runs in background for reminders and memory maintenance</div>
+          </div>
+          <label style={styles.toggle}>
+            <input type="checkbox" defaultChecked style={{ display: 'none' }} />
+            <div style={styles.toggleTrack(true)}>
+              <div style={styles.toggleThumb(true)} />
+            </div>
+          </label>
+        </div>
+      </section>
+
       {/* Danger Zone */}
       <section style={{ ...styles.section, borderColor: 'rgba(248, 81, 73, 0.3)' }}>
-        <h2 style={{ ...styles.sectionTitle, color: 'var(--accent-danger)' }}>Danger Zone</h2>
+        <h2 style={{ ...styles.sectionTitle, color: 'var(--error)' }}>Danger Zone</h2>
         <p style={styles.sectionDesc}>Destructive actions that cannot be undone.</p>
         <div style={styles.row}>
           <div>
@@ -249,11 +289,14 @@ const styles: Record<string, any> = {
     marginBottom: 16,
   },
   section: {
-    marginBottom: 28,
+    marginBottom: 20,
     padding: '20px 24px',
-    background: 'var(--bg-secondary)',
-    border: '1px solid var(--border-default)',
+    background: 'var(--glass-bg)',
+    border: '1px solid var(--glass-border)',
     borderRadius: 12,
+    backdropFilter: 'blur(8px)',
+    WebkitBackdropFilter: 'blur(8px)',
+    transition: 'border-color 200ms ease',
   },
   sectionTitle: {
     fontSize: 15,
@@ -439,11 +482,37 @@ const styles: Record<string, any> = {
     color: 'var(--text-primary)',
     fontWeight: 500,
   },
+  toggle: {
+    cursor: 'pointer',
+    display: 'flex',
+    flexShrink: 0,
+  },
+  toggleTrack: (on: boolean) => ({
+    width: 40,
+    height: 22,
+    borderRadius: 11,
+    background: on ? 'var(--accent-primary)' : 'var(--bg-tertiary)',
+    border: `1px solid ${on ? 'var(--accent-primary)' : 'var(--border-default)'}`,
+    display: 'flex',
+    alignItems: 'center',
+    padding: '0 3px',
+    justifyContent: on ? 'flex-end' : 'flex-start',
+    transition: 'all 200ms ease',
+    boxShadow: on ? '0 0 8px rgba(79, 111, 255, 0.3)' : 'none',
+  }),
+  toggleThumb: (on: boolean) => ({
+    width: 16,
+    height: 16,
+    borderRadius: '50%',
+    background: on ? '#fff' : 'var(--text-muted)',
+    transition: 'all 200ms ease',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+  }),
   dangerBtn: {
     padding: '8px 16px',
     fontSize: 13,
     fontWeight: 600,
-    color: 'var(--accent-danger)',
+    color: 'var(--error)',
     background: 'rgba(248, 81, 73, 0.1)',
     border: '1px solid rgba(248, 81, 73, 0.3)',
     borderRadius: 8,

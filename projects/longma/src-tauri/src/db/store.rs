@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 pub struct Database {
-    conn: Mutex<Connection>,
+    pub(crate) conn: Mutex<Connection>,
 }
 
 #[derive(Debug, Serialize)]

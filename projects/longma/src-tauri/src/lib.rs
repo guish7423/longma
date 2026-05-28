@@ -1,8 +1,14 @@
 mod api;
 mod db;
 mod engine;
+mod memory;
+mod tick;
+mod speculative;
+mod tray;
 
 use serde::Serialize;
+use std::sync::{Arc, LazyLock};
+use tauri::Manager;
 
 #[derive(Debug, Serialize)]
 pub struct AppInfo {
@@ -42,7 +48,63 @@ async fn chat_stream(
     );
 
     let messages = api::deepseek::build_messages(messages);
-    client.chat_stream(messages, app).await
+
+    // Run speculative injection on the latest user input
+    if let Some(last_user_msg) = messages.iter().rev().find(|m| m.role == "user") {
+        let speculative_results = speculative::injector::SpeculativeInjector::run(
+            &last_user_msg.content,
+            &messages,
+        );
+
+        if !speculative_results.is_empty() {
+            let mut speculative_content = String::from("[Speculative Context]\n");
+            for result in &speculative_results {
+                speculative_content.push_str(&format!(
+                    "[{}] (conf: {:.1}) {}\n",
+                    result.task_type, result.confidence, result.content
+                ));
+            }
+
+            // Inject as system message right before the user message
+            let mut enhanced_messages = Vec::new();
+            let last_user_pos = messages.len() - 1;
+            let mut speculative_injected = false;
+
+            for (i, msg) in messages.iter().enumerate() {
+                if i == last_user_pos && !speculative_injected {
+                    // Insert speculative context message before the user message
+                    enhanced_messages.push(api::deepseek::ChatMessage {
+                        role: "system".into(),
+                        content: speculative_content.clone(),
+                    });
+                    speculative_injected = true;
+                }
+                enhanced_messages.push(msg.clone());
+            }
+
+            // Also perform memory injection via the memory system
+            if let Ok(memory_enhanced) = crate::memory::injector::Injector::inject_into_builder(
+                enhanced_messages.clone(),
+                &last_user_msg.content,
+            ) {
+                enhanced_messages = memory_enhanced;
+            }
+
+            client.chat_stream(enhanced_messages, app).await
+        } else {
+            // No speculative results, but still try memory injection
+            if let Ok(memory_enhanced) = crate::memory::injector::Injector::inject_into_builder(
+                messages.clone(),
+                &last_user_msg.content,
+            ) {
+                client.chat_stream(memory_enhanced, app).await
+            } else {
+                client.chat_stream(messages, app).await
+            }
+        }
+    } else {
+        client.chat_stream(messages, app).await
+    }
 }
 
 #[tauri::command]
@@ -145,10 +207,299 @@ fn get_conversation_costs() -> Result<Vec<ConversationCost>, String> {
     Ok(costs)
 }
 
+// ─── Memory Commands ──────────────────────────────────────────
+
+#[tauri::command]
+fn search_memory(query: String, category: Option<String>, limit: Option<usize>) -> Result<Vec<memory::types::MemoryItem>, String> {
+    let store = memory::store::MemoryStore::new()?;
+    let mut q = memory::types::MemoryQuery::default();
+    q.keywords = Some(query.split_whitespace().map(String::from).collect());
+    q.limit = limit.unwrap_or(5);
+    if let Some(cat_str) = category {
+        if let Some(cat) = memory::types::MemoryCategory::from_str(&cat_str) {
+            q.categories = Some(vec![cat]);
+        }
+    }
+    store.search(&q)
+}
+
+#[tauri::command]
+fn write_memory(category: String, content: String, tags: Vec<String>, source: String) -> Result<i64, String> {
+    let store = memory::store::MemoryStore::new()?;
+    let cat = memory::types::MemoryCategory::from_str(&category)
+        .ok_or_else(|| format!("Invalid category: {category}"))?;
+    let item = memory::types::MemoryItem {
+        id: None,
+        category: cat,
+        content,
+        tags,
+        source,
+        strength: 0.5,
+        created_at: 0,
+        accessed_at: 0,
+        ttl: None,
+    };
+    store.insert(&item)
+}
+
+#[tauri::command]
+fn list_memories(category: Option<String>) -> Result<Vec<memory::types::MemoryItem>, String> {
+    let store = memory::store::MemoryStore::new()?;
+    if let Some(cat_str) = category {
+        if let Some(cat) = memory::types::MemoryCategory::from_str(&cat_str) {
+            return store.list_by_category(&cat);
+        }
+    }
+    // Return all (search with empty query, high limit)
+    let q = memory::types::MemoryQuery {
+        limit: 100,
+        ..Default::default()
+    };
+    store.search(&q)
+}
+
+#[tauri::command]
+fn delete_memory(id: i64) -> Result<(), String> {
+    let store = memory::store::MemoryStore::new()?;
+    store.delete(id)
+}
+
+// ─── Reminder Commands ────────────────────────────────────────
+
+#[tauri::command]
+fn create_reminder(title: String, description: String, due_at: i64, repeat_interval: Option<i64>) -> Result<i64, String> {
+    let store = tick::reminder::ReminderStore::new()?;
+    store.create(&title, &description, due_at, repeat_interval)
+}
+
+#[tauri::command]
+fn list_reminders() -> Result<Vec<tick::reminder::Reminder>, String> {
+    let store = tick::reminder::ReminderStore::new()?;
+    store.list()
+}
+
+#[tauri::command]
+fn cancel_reminder(id: i64) -> Result<(), String> {
+    let store = tick::reminder::ReminderStore::new()?;
+    store.cancel(id)
+}
+
+// ─── Task Stack Commands ──────────────────────────────────────
+
+static TASK_STACK: LazyLock<tick::task_stack::TaskStack> = LazyLock::new(tick::task_stack::TaskStack::new);
+
+#[tauri::command]
+fn suspend_task(description: String, context: Option<String>) -> String {
+    TASK_STACK.suspend(&description, context)
+}
+
+#[tauri::command]
+fn resume_task(id: String) -> Option<tick::task_stack::SuspendedTask> {
+    TASK_STACK.resume(&id)
+}
+
+#[tauri::command]
+fn cancel_task(id: String) -> bool {
+    TASK_STACK.cancel(&id)
+}
+
+#[tauri::command]
+fn list_suspended_tasks() -> Vec<tick::task_stack::SuspendedTask> {
+    TASK_STACK.list()
+}
+
+// ─── Cache Commands (Phase 3 — Three-Tier Cache) ────────────
+
+static THREE_TIER_CACHE: LazyLock<std::sync::Mutex<engine::cache::ThreeTierCache>> =
+    LazyLock::new(|| std::sync::Mutex::new(engine::cache::ThreeTierCache::new()));
+
+#[tauri::command]
+fn get_cache_stats() -> engine::cache::CacheStats {
+    THREE_TIER_CACHE.lock().unwrap().get_stats().clone()
+}
+
+#[tauri::command]
+fn cache_lookup(key: String) -> Option<(String, String)> {
+    // Returns content and zone name on hit
+    THREE_TIER_CACHE
+        .lock()
+        .unwrap()
+        .lookup(&key)
+        .map(|(content, zone)| (content, zone.to_string()))
+}
+
+#[tauri::command]
+fn cache_insert(key: String, content: String, token_count: u32) {
+    THREE_TIER_CACHE
+        .lock()
+        .unwrap()
+        .insert(key, content, token_count);
+}
+
+#[tauri::command]
+fn invalidate_conversation_cache(conversation_id: i64) {
+    THREE_TIER_CACHE
+        .lock()
+        .unwrap()
+        .invalidate_conversation(conversation_id);
+}
+
+// ─── Tool Engine Commands (Phase 3 — Parallel Tools + Repair) ─
+
+static TOOL_ENGINE: LazyLock<std::sync::Mutex<engine::tools::ToolEngine>> =
+    LazyLock::new(|| std::sync::Mutex::new(engine::tools::ToolEngine::new()));
+
+#[tauri::command]
+fn list_tools() -> Vec<engine::tools::Tool> {
+    TOOL_ENGINE
+        .lock()
+        .unwrap()
+        .list_tools()
+        .into_iter()
+        .cloned()
+        .collect()
+}
+
+#[tauri::command]
+fn get_tool_info(name: String) -> Option<engine::tools::Tool> {
+    TOOL_ENGINE.lock().unwrap().get_tool(&name).cloned()
+}
+
+// ─── Budget Commands (Phase 3 — Cost Control) ───────────────
+
+static BUDGET_TRACKER: LazyLock<std::sync::Mutex<engine::budget::BudgetState>> =
+    LazyLock::new(|| std::sync::Mutex::new(engine::budget::BudgetState::new(None)));
+
+#[tauri::command]
+fn get_budget_status() -> engine::budget::BudgetState {
+    BUDGET_TRACKER.lock().unwrap().clone()
+}
+
+#[tauri::command]
+fn record_budget_spend(cost: f64, conversation_id: i64) {
+    BUDGET_TRACKER.lock().unwrap().record_spend(cost, conversation_id);
+}
+
+#[tauri::command]
+fn record_budget_failure() {
+    BUDGET_TRACKER.lock().unwrap().record_failure();
+}
+
+#[tauri::command]
+fn reset_budget() {
+    let config = api::config::load_config();
+    let mut tracker = BUDGET_TRACKER.lock().unwrap();
+    *tracker = engine::budget::BudgetState::new(config.daily_budget_usd);
+    tracker.prefer_flash = config.prefer_flash;
+    tracker.auto_compress = config.auto_compress;
+    tracker.compress_threshold = config.compress_threshold;
+}
+
+#[tauri::command]
+fn update_budget_config(
+    daily_budget_usd: Option<Option<f64>>,
+    auto_compress: Option<bool>,
+    compress_threshold: Option<u32>,
+    prefer_flash: Option<bool>,
+) {
+    let mut tracker = BUDGET_TRACKER.lock().unwrap();
+    if let Some(budget) = daily_budget_usd {
+        tracker.daily_budget_usd = budget;
+    }
+    if let Some(ac) = auto_compress {
+        tracker.auto_compress = ac;
+    }
+    if let Some(ct) = compress_threshold {
+        tracker.compress_threshold = ct;
+    }
+    if let Some(pf) = prefer_flash {
+        tracker.prefer_flash = pf;
+    }
+}
+
+// ─── MCP Commands (Phase 3 — MCP Client) ─────────────────────
+
+use engine::mcp::types::{McpServerConfig, McpServerStatus, McpTool, McpToolResult};
+
+#[tauri::command]
+async fn list_mcp_servers() -> Vec<McpServerConfig> {
+    crate::api::config::load_config().mcp_servers
+}
+
+#[tauri::command]
+async fn connect_mcp_server(
+    mcp: tauri::State<'_, engine::mcp::client::SharedMcpManager>,
+    config: McpServerConfig,
+) -> Result<McpServerStatus, String> {
+    let name = config.name.clone();
+    {
+        let manager = mcp.lock().await;
+        if let Some(status) = manager.get_status(&name) {
+            if status.connected {
+                return Err(format!("Server '{}' is already connected", name));
+            }
+        }
+    }
+    mcp.lock().await.connect(config.clone()).await?;
+    let status = mcp.lock().await.get_status(&name)
+        .ok_or("Failed to get server status after connect")?;
+    Ok(status)
+}
+
+#[tauri::command]
+async fn disconnect_mcp_server(
+    mcp: tauri::State<'_, engine::mcp::client::SharedMcpManager>,
+    name: String,
+) -> Result<(), String> {
+    mcp.lock().await.disconnect(&name).await
+}
+
+#[tauri::command]
+async fn list_mcp_status(
+    mcp: tauri::State<'_, engine::mcp::client::SharedMcpManager>,
+) -> Result<Vec<McpServerStatus>, String> {
+    Ok(mcp.lock().await.list_status())
+}
+
+#[tauri::command]
+async fn list_mcp_tools(
+    mcp: tauri::State<'_, engine::mcp::client::SharedMcpManager>,
+) -> Result<Vec<(String, McpTool)>, String> {
+    Ok(mcp.lock().await.list_all_tools())
+}
+
+#[tauri::command]
+async fn call_mcp_tool(
+    mcp: tauri::State<'_, engine::mcp::client::SharedMcpManager>,
+    server_name: String,
+    tool_name: String,
+    args: serde_json::Value,
+) -> Result<McpToolResult, String> {
+    mcp.lock().await.call_tool(&server_name, &tool_name, args).await
+}
+
+// ─── Tick Commands ────────────────────────────────────────────
+
+#[tauri::command]
+fn notify_activity(tick_engine: tauri::State<'_, std::sync::Arc<tick::engine::TickEngine>>) {
+    tick_engine.notify_activity();
+}
+
+#[tauri::command]
+fn get_tick_heartbeat(tick_engine: tauri::State<'_, std::sync::Arc<tick::engine::TickEngine>>) -> tick::types::TickHeartbeat {
+    tick_engine.get_heartbeat()
+}
+
+// ─── App Entry Point ──────────────────────────────────────────
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let tick_engine = Arc::new(tick::engine::TickEngine::new());
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_notification::init())
+        .manage(tick_engine.clone())
         .invoke_handler(tauri::generate_handler![
             get_app_info,
             chat_stream,
@@ -162,7 +513,71 @@ pub fn run() {
             get_cost_summary,
             get_conversation_costs,
             api::config::update_config,
+            // Memory commands
+            search_memory,
+            write_memory,
+            list_memories,
+            delete_memory,
+            // Budget commands
+            get_budget_status,
+            record_budget_spend,
+            record_budget_failure,
+            reset_budget,
+            update_budget_config,
+            // Tick commands
+            notify_activity,
+            get_tick_heartbeat,
+            // Reminder commands
+            create_reminder,
+            list_reminders,
+            cancel_reminder,
+            // Task stack commands
+            suspend_task,
+            resume_task,
+            cancel_task,
+            list_suspended_tasks,
+            // Cache commands
+            get_cache_stats,
+            cache_lookup,
+            cache_insert,
+            invalidate_conversation_cache,
+            // Tool engine commands
+            list_tools,
+            get_tool_info,
+            // MCP commands
+            list_mcp_servers,
+            connect_mcp_server,
+            disconnect_mcp_server,
+            list_mcp_status,
+            list_mcp_tools,
+            call_mcp_tool,
         ])
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                // Hide window instead of quitting
+                let _ = window.hide();
+            }
+        })
+        .setup(move |app| {
+            let handle = app.handle();
+            // Initialize budget tracker from config
+            let config = api::config::load_config();
+            {
+                let mut tracker = BUDGET_TRACKER.lock().unwrap();
+                tracker.daily_budget_usd = config.daily_budget_usd;
+                tracker.auto_compress = config.auto_compress;
+                tracker.compress_threshold = config.compress_threshold;
+                tracker.prefer_flash = config.prefer_flash;
+            }
+            // Initialize MCP manager
+            let mcp_manager = engine::mcp::client::create_shared_manager();
+            app.manage(mcp_manager);
+            // Start TICK engine on app startup
+            tick_engine.start(handle.clone());
+            // Build system tray
+            let _ = tray::build_tray(handle);
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

@@ -1,5 +1,5 @@
+import { useState } from 'react';
 import { useSessionStore } from '../../stores/session';
-
 
 interface SidebarProps {
   conversations: { id: number; title: string }[];
@@ -17,15 +17,24 @@ export default function Sidebar({
   onDelete,
 }: SidebarProps) {
   const { agentState, view, setView } = useSessionStore();
+  const [hoveredConv, setHoveredConv] = useState<number | null>(null);
 
   return (
     <div style={styles.container}>
+      {/* Logo + Brand */}
       <div style={styles.header}>
-        <div style={styles.logo}>LM</div>
+        <div style={styles.logo}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 6v6l4 2" />
+          </svg>
+        </div>
         <span style={styles.title}>LongMa</span>
+        <div style={styles.badge}>v2</div>
       </div>
 
-      <button style={styles.newChat} onClick={onNew}>
+      {/* New Chat */}
+      <button style={styles.newChat} onClick={onNew} className="hover-lift click-scale">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <line x1="12" y1="5" x2="12" y2="19" />
           <line x1="5" y1="12" x2="19" y2="12" />
@@ -33,6 +42,7 @@ export default function Sidebar({
         New Chat
       </button>
 
+      {/* Conversation List */}
       <div style={styles.list}>
         {conversations.map((conv) => (
           <div
@@ -42,51 +52,76 @@ export default function Sidebar({
               ...(conv.id === currentConversationId ? styles.convItemActive : {}),
             }}
             onClick={() => onSelect(conv.id)}
+            onMouseEnter={() => setHoveredConv(conv.id)}
+            onMouseLeave={() => setHoveredConv(null)}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
             <span style={styles.convTitle}>{conv.title}</span>
-            <button
-              style={styles.deleteBtn}
-              onClick={(e) => { e.stopPropagation(); onDelete(conv.id); }}
-              title="Delete conversation"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
+            <div style={{
+              ...styles.convActions,
+              opacity: hoveredConv === conv.id ? 1 : 0,
+            }}>
+              <button
+                style={styles.deleteBtn}
+                onClick={(e) => { e.stopPropagation(); onDelete(conv.id); }}
+                title="Delete conversation"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
           </div>
+        ))}
+        {conversations.length === 0 && (
+          <div style={styles.emptyList}>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>No conversations yet</span>
+          </div>
+        )}
+      </div>
+
+      {/* Nav Buttons */}
+      <div style={styles.navGroup}>
+        {navItems.map((item) => (
+          <button
+            key={item.view}
+            style={styles.navBtn(view === item.view)}
+            onClick={() => setView(view === item.view ? 'chat' : item.view as any)}
+            className="click-scale"
+          >
+            <svg width="14" height="14" viewBox={item.iconViewBox} fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
+              {item.iconPath}
+            </svg>
+            <span style={{ flex: 1, textAlign: 'left' }}>
+              {view === item.view ? 'Chat' : item.label}
+            </span>
+            {view === item.view && (
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ opacity: 0.5 }}>
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            )}
+          </button>
         ))}
       </div>
 
-      {/* Settings button */}
-      <button style={styles.settingsBtn(view)} onClick={() => setView(view === 'settings' ? 'chat' : 'settings')}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
-          <circle cx="12" cy="12" r="3" />
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-        </svg>
-        {view === 'settings' ? 'Chat' : 'Settings'}
-      </button>
-
-      {/* Dashboard button */}
-      <button style={styles.dashboardBtn(view)} onClick={() => setView(view === 'dashboard' ? 'chat' : 'dashboard')}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
-          <rect x="3" y="3" width="7" height="7" rx="1" />
-          <rect x="14" y="3" width="7" height="7" rx="1" />
-          <rect x="3" y="14" width="7" height="7" rx="1" />
-          <rect x="14" y="14" width="7" height="7" rx="1" />
-        </svg>
-        {view === 'dashboard' ? 'Chat' : 'Dashboard'}
-      </button>
-
+      {/* Footer Status */}
       <div style={styles.footer}>
         <div style={styles.statusDot(agentState)} />
         <span style={styles.statusText}>{agentState}</span>
+        <div style={styles.modelBadge}>Flash</div>
       </div>
     </div>
   );
 }
+
+const navItems = [
+  { view: 'settings', label: 'Settings', iconViewBox: '0 0 24 24', iconPath: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></> },
+  { view: 'memory', label: 'Memory', iconViewBox: '0 0 24 24', iconPath: <><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></> },
+  { view: 'mcp', label: 'MCP', iconViewBox: '0 0 24 24', iconPath: <><polyline points="16 3 21 3 21 8" /><line x1="4" y1="20" x2="21" y2="3" /><polyline points="21 16 21 21 16 21" /><line x1="15" y1="15" x2="21" y2="21" /><line x1="4" y1="4" x2="9" y2="9" /></> },
+  { view: 'dashboard', label: 'Dashboard', iconViewBox: '0 0 24 24', iconPath: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></> },
+];
 
 const styles: Record<string, any> = {
   container: {
@@ -108,20 +143,29 @@ const styles: Record<string, any> = {
     width: 28,
     height: 28,
     borderRadius: 8,
-    background: 'linear-gradient(135deg, var(--accent-primary) 0%, #7c3aed 100%)',
+    background: 'var(--gradient-brand)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: 12,
-    fontWeight: 700,
     color: '#fff',
     flexShrink: 0,
+    boxShadow: 'var(--glow-primary)',
   },
   title: {
     fontSize: 16,
     fontWeight: 700,
     color: 'var(--text-primary)',
     letterSpacing: '-0.3px',
+    flex: 1,
+  },
+  badge: {
+    fontSize: 10,
+    fontWeight: 600,
+    padding: '2px 6px',
+    borderRadius: 4,
+    background: 'var(--accent-muted)',
+    color: 'var(--accent-primary)',
+    letterSpacing: '0.5px',
   },
   newChat: {
     margin: '10px 12px',
@@ -136,7 +180,7 @@ const styles: Record<string, any> = {
     display: 'flex',
     alignItems: 'center',
     gap: 8,
-    transition: 'all 0.15s ease',
+    transition: 'all var(--transition-fast)',
   },
   list: {
     flex: 1,
@@ -145,6 +189,12 @@ const styles: Record<string, any> = {
     display: 'flex',
     flexDirection: 'column',
     gap: 2,
+  },
+  emptyList: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
   },
   convItem: {
     display: 'flex',
@@ -155,29 +205,57 @@ const styles: Record<string, any> = {
     cursor: 'pointer',
     fontSize: 13,
     color: 'var(--text-secondary)',
-    transition: 'all 0.15s ease',
+    transition: 'all var(--transition-fast)',
   },
   convItemActive: {
-    background: 'var(--bg-tertiary)',
+    background: 'var(--accent-subtle)',
     color: 'var(--text-primary)',
+    borderLeft: '2px solid var(--accent-primary)',
   },
   convTitle: {
     flex: 1,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
+    fontSize: 12.5,
+  },
+  convActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 2,
+    transition: 'opacity 150ms ease',
   },
   deleteBtn: {
-    opacity: 0,
     background: 'none',
     border: 'none',
     color: 'var(--text-muted)',
     cursor: 'pointer',
-    padding: 2,
+    padding: 3,
     display: 'flex',
     alignItems: 'center',
     borderRadius: 4,
+    transition: 'all 100ms ease',
   },
+  navGroup: {
+    padding: '4px 12px 8px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 4,
+  },
+  navBtn: (active: boolean) => ({
+    padding: '8px 12px',
+    fontSize: 13,
+    fontWeight: 600,
+    color: active ? 'var(--accent-primary)' : 'var(--text-secondary)',
+    background: active ? 'var(--accent-muted)' : 'transparent',
+    border: active ? '1px solid var(--border-accent)' : '1px solid transparent',
+    borderRadius: 8,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    transition: 'all var(--transition-fast)',
+  }),
   footer: {
     display: 'flex',
     alignItems: 'center',
@@ -192,41 +270,24 @@ const styles: Record<string, any> = {
     height: 8,
     borderRadius: '50%',
     background:
-      state === 'thinking' ? 'var(--accent-warning)' :
-      state === 'error' ? 'var(--accent-danger)' :
-      state === 'speaking' ? 'var(--accent-success)' :
+      state === 'thinking' ? 'var(--warning)' :
+      state === 'error' ? 'var(--error)' :
+      state === 'speaking' ? 'var(--success)' :
       'var(--text-muted)',
     animation: state === 'thinking' ? 'pulse 1.5s ease-in-out infinite' : 'none',
   }),
-  statusText: {},
-  dashboardBtn: (view: string) => ({
-    margin: '0 12px 8px',
-    padding: '8px 12px',
-    fontSize: 13,
+  statusText: {
+    flex: 1,
+    textTransform: 'capitalize' as const,
+    fontSize: 11.5,
+  },
+  modelBadge: {
+    fontSize: 10,
     fontWeight: 600,
-    color: view === 'dashboard' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-    background: view === 'dashboard' ? 'rgba(79, 111, 255, 0.1)' : 'transparent',
-    border: view === 'dashboard' ? '1px solid rgba(79, 111, 255, 0.25)' : '1px solid transparent',
-    borderRadius: 8,
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    transition: 'all 0.15s ease',
-  }),
-  settingsBtn: (view: string) => ({
-    margin: '0 12px 8px',
-    padding: '8px 12px',
-    fontSize: 13,
-    fontWeight: 600,
-    color: view === 'settings' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-    background: view === 'settings' ? 'rgba(79, 111, 255, 0.1)' : 'transparent',
-    border: view === 'settings' ? '1px solid rgba(79, 111, 255, 0.25)' : '1px solid transparent',
-    borderRadius: 8,
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    transition: 'all 0.15s ease',
-  }),
+    padding: '2px 6px',
+    borderRadius: 4,
+    background: 'var(--bg-tertiary)',
+    color: 'var(--success)',
+    border: '1px solid rgba(63, 185, 80, 0.3)',
+  },
 };

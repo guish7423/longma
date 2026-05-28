@@ -42,8 +42,8 @@ interface SessionState {
   setPhase: (phase: 'splash' | 'onboarding' | 'main') => void;
 
   // View
-  view: 'chat' | 'dashboard' | 'settings';
-  setView: (view: 'chat' | 'dashboard' | 'settings') => void;
+  view: 'chat' | 'dashboard' | 'settings' | 'memory' | 'mcp';
+  setView: (view: 'chat' | 'dashboard' | 'settings' | 'memory') => void;
 
   // Temperature / max tokens
   temperature: number;

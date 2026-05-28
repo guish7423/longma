@@ -8,6 +8,7 @@ interface MessageInputProps {
 
 export default function MessageInput({ onSend, disabled }: MessageInputProps) {
   const [value, setValue] = useState('');
+  const [focused, setFocused] = useState(false);
   const { model, switchModel } = useSessionStore();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -44,21 +45,30 @@ export default function MessageInput({ onSend, disabled }: MessageInputProps) {
   return (
     <div style={styles.container}>
       <div style={styles.inputRow}>
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onInput={handleInput}
-          placeholder="Ask LongMa anything..."
-          disabled={disabled}
-          rows={1}
-          style={styles.textarea}
-        />
+        <div style={{
+          ...styles.inputWrapper,
+          borderColor: focused ? 'var(--accent-primary)' : 'var(--border-default)',
+          boxShadow: focused ? '0 0 0 1px var(--accent-primary), 0 0 20px rgba(79, 111, 255, 0.08)' : 'none',
+        }}>
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onInput={handleInput}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            placeholder="Ask LongMa anything..."
+            disabled={disabled}
+            rows={1}
+            style={styles.textarea}
+          />
+        </div>
         <button
           onClick={handleSend}
           disabled={disabled || !value.trim()}
           style={styles.sendBtn(disabled || !value.trim())}
+          className="click-scale"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <line x1="22" y1="2" x2="11" y2="13" />
@@ -67,12 +77,12 @@ export default function MessageInput({ onSend, disabled }: MessageInputProps) {
         </button>
       </div>
       <div style={styles.footer}>
-        <button style={styles.modelToggle} onClick={cycleModel}>
-          {model === 'deepseek-v4-pro' ? (
-            <><span style={{ color: '#a78bfa' }}>●</span> Pro</>
-          ) : (
-            <><span style={{ color: 'var(--accent-primary)' }}>●</span> Flash</>
-          )}
+        <button style={styles.modelToggle} onClick={cycleModel} className="click-scale">
+          <span style={{
+            width: 6, height: 6, borderRadius: '50%', display: 'inline-block',
+            background: model === 'deepseek-v4-pro' ? '#a78bfa' : 'var(--accent-primary)',
+          }} />
+          {model === 'deepseek-v4-pro' ? 'Pro' : 'Flash'}
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polyline points="6 9 12 15 18 9" />
           </svg>
@@ -94,20 +104,25 @@ const styles: Record<string, any> = {
     gap: 8,
     alignItems: 'flex-end',
   },
-  textarea: {
+  inputWrapper: {
     flex: 1,
+    borderRadius: 12,
+    border: '1px solid var(--border-default)',
+    transition: 'border-color 200ms ease, box-shadow 200ms ease',
+    background: 'var(--bg-secondary)',
+  },
+  textarea: {
+    width: '100%',
     padding: '12px 16px',
     fontSize: 14,
     fontFamily: 'inherit',
     color: 'var(--text-primary)',
-    background: 'var(--bg-secondary)',
-    border: '1px solid var(--border-default)',
-    borderRadius: 12,
+    background: 'transparent',
+    border: 'none',
     outline: 'none',
     resize: 'none',
     lineHeight: 1.5,
     maxHeight: 200,
-    transition: 'border-color 0.15s ease',
   },
   sendBtn: (disabled: boolean) => ({
     width: 42,
@@ -141,6 +156,7 @@ const styles: Record<string, any> = {
     fontWeight: 600,
     color: 'var(--text-secondary)',
     cursor: 'pointer',
+    transition: 'all var(--transition-fast)',
   },
   hint: {
     fontSize: 11,
