@@ -1,21 +1,19 @@
-"""Dashboard API routes — stub for Task 6."""
+"""Dashboard API routes — aggregated status overview."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_db
+from app.services.report_service import compute_dashboard_summary
 
 router = APIRouter(tags=["dashboard"])
 
 
 @router.get("/dashboard/summary")
-async def get_dashboard_summary():
-    """Get dashboard summary (stub)."""
-    return {
-        "tasks_today_total": 0,
-        "tasks_today_pending": 0,
-        "tasks_today_completed": 0,
-        "tasks_today_failed": 0,
-        "active_agents": 10,
-        "recent_activity_count": 0,
-        "total_expenses_cents": 0,
+async def get_dashboard_summary(db: AsyncSession = Depends(get_db)):
+    """Get aggregated dashboard summary from all services."""
+    summary = await compute_dashboard_summary(db)
+    return summary
         "mrr_cents": 0,
         "arr_cents": 0,
         "active_subscribers": 0,
