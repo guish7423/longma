@@ -8,17 +8,38 @@ from fastapi.responses import JSONResponse, RedirectResponse
 
 from app.config import settings
 
+import asyncio
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, RedirectResponse
+
+from app.config import settings
+
+
+_redis_task: asyncio.Task | None = None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan — manages startup/shutdown events."""
+    global _redis_task
     # Startup: initialize DB tables in debug mode
     if settings.debug:
         from app.core.database import init_db
         await init_db()
+    # Startup: start Redis pub/sub listener for WebSocket
+    from app.api.v1.ws import listen_redis
+    _redis_task = asyncio.create_task(listen_redis())
     yield
-    # Shutdown: connections cleaned up automatically
-
+    # Shutdown: cancel Redis listener
+    if _redis_task:
+        _redis_task.cancel()
+        try:
+            await _redis_task
+        except asyncio.CancelledError:
+            pass
 
 app = FastAPI(
     title=settings.app_name,
