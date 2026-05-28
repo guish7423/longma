@@ -36,6 +36,7 @@ jobs:
         working-directory: projects/longma
         run: |
           npm install
+          npm test
           npm run tauri build
       - uses: actions/upload-artifact@v4
         with:
@@ -51,13 +52,6 @@ jobs:
         with:
           node-version: 20
       - uses: dtolnay/rust-toolchain@stable
-      - name: Debug info
-        shell: pwsh
-        run: |
-          echo "GITHUB_WORKSPACE=$env:GITHUB_WORKSPACE"
-          Get-ChildItem -Path "projects/longma/package.json"
-          node --version
-          npm --version
       - name: Build
         shell: pwsh
         working-directory: projects/longma
@@ -78,12 +72,6 @@ jobs:
         with:
           node-version: 20
       - uses: dtolnay/rust-toolchain@stable
-      - name: Debug info
-        run: |
-          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
-          ls -la projects/longma/package.json
-          node --version
-          npm --version
       - name: Build
         working-directory: projects/longma
         run: |
