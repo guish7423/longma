@@ -127,6 +127,7 @@ const navItems = [
   { view: 'memory', label: 'Memory', iconViewBox: '0 0 24 24', iconPath: <><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></> },
   { view: 'mcp', label: 'MCP', iconViewBox: '0 0 24 24', iconPath: <><polyline points="16 3 21 3 21 8" /><line x1="4" y1="20" x2="21" y2="3" /><polyline points="21 16 21 21 16 21" /><line x1="15" y1="15" x2="21" y2="21" /><line x1="4" y1="4" x2="9" y2="9" /></> },
   { view: 'dashboard', label: 'Dashboard', iconViewBox: '0 0 24 24', iconPath: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></> },
+  { view: 'health', label: 'Health', iconViewBox: '0 0 24 24', iconPath: <><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></> },
 ];
 
 const styles: Record<string, any> = {

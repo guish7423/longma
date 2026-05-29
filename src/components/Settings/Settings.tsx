@@ -24,9 +24,7 @@ export default function Settings() {
     model, setModel,
     temperature, setTemperature,
     maxTokens, setMaxTokens,
-    hasApiKey,
     resetStats,
-    config,
   } = useSessionStore();
   const { conversations, deleteConversation, newConversation } = useChatStore();
 
@@ -35,7 +33,7 @@ export default function Settings() {
   const [activeProvider, setActiveProvider] = useState('deepseek');
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
   const [baseUrls, setBaseUrls] = useState<Record<string, string>>({});
-  const [providerAccounts, setProviderAccounts] = useState<Array<{ id: string; api_key: string; base_url?: string }>>([]);
+  const [, setProviderAccounts] = useState<Array<{ id: string; api_key: string; base_url?: string }>>([]);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Load models and provider data on mount

@@ -42,8 +42,8 @@ interface SessionState {
   setPhase: (phase: 'splash' | 'onboarding' | 'main') => void;
 
   // View
-  view: 'chat' | 'dashboard' | 'settings' | 'memory' | 'mcp' | 'player' | 'voice' | 'hotspots' | 'weather' | 'persona' | 'social';
-  setView: (view: 'chat' | 'dashboard' | 'settings' | 'memory' | 'mcp' | 'player' | 'voice' | 'hotspots' | 'weather' | 'persona' | 'social') => void;
+  view: 'chat' | 'dashboard' | 'settings' | 'memory' | 'mcp' | 'player' | 'voice' | 'hotspots' | 'weather' | 'persona' | 'social' | 'health';
+  setView: (view: 'chat' | 'dashboard' | 'settings' | 'memory' | 'mcp' | 'player' | 'voice' | 'hotspots' | 'weather' | 'persona' | 'social' | 'health') => void;
 
   // Player state
   nowPlaying: { title: string; artist: string; isPlaying: boolean } | null;

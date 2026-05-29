@@ -6,3 +6,4 @@ pub mod mcp;
 pub mod monitor;
 pub mod player;
 pub mod tools;
+pub mod tts;

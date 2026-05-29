@@ -592,6 +592,18 @@ fn player_set_volume(volume: f32) -> Result<(), String> {
     Ok(())
 }
 
+// ─── TTS Commands ────────────────────────────────────────────
+
+#[tauri::command]
+fn detect_tts() -> engine::tts::TtsCapability {
+    engine::tts::detect_tts()
+}
+
+#[tauri::command]
+fn speak_text(text: String, engine: Option<String>) -> engine::tts::TtsResult {
+    engine::tts::speak(&text, engine.as_deref())
+}
+
 // ─── System Monitor Commands ─────────────────────────────────
 
 #[tauri::command]
@@ -621,6 +633,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         .manage(tick_engine.clone())
         .invoke_handler(tauri::generate_handler![
             get_app_info,
@@ -685,6 +698,9 @@ pub fn run() {
             player_set_volume,
             // System monitor commands
             get_system_resources,
+            // TTS commands
+            detect_tts,
+            speak_text,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {

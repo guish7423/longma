@@ -12,6 +12,7 @@ import HotspotsPanel from '../Hotspots/HotspotsPanel';
 import WeatherCard from '../Weather/WeatherCard';
 import PersonaPanel from '../Persona/PersonaPanel';
 import SocialPanel from '../Social/SocialPanel';
+import HealthPanel from '../Health/HealthPanel';
 import { useSessionStore } from '../../stores/session';
 
 export default function ConversationList() {
@@ -37,7 +38,7 @@ export default function ConversationList() {
       onNewConversation={newConversation}
       onDeleteConversation={deleteConversation}
     >
-      {view === 'dashboard' ? <CostDashboard /> : view === 'settings' ? <Settings /> : view === 'memory' ? <MemoryPanel /> : view === 'mcp' ? <MCPPanel /> : view === 'player' ? <PlayerPanel /> : view === 'voice' ? <VoicePanel /> : view === 'hotspots' ? <HotspotsPanel /> : view === 'weather' ? <WeatherCard /> : view === 'persona' ? <PersonaPanel /> : view === 'social' ? <SocialPanel /> : <ChatView />}
+      {view === 'dashboard' ? <CostDashboard /> : view === 'settings' ? <Settings /> : view === 'memory' ? <MemoryPanel /> : view === 'mcp' ? <MCPPanel /> : view === 'player' ? <PlayerPanel /> : view === 'voice' ? <VoicePanel /> : view === 'hotspots' ? <HotspotsPanel /> : view === 'weather' ? <WeatherCard /> : view === 'persona' ? <PersonaPanel /> : view === 'social' ? <SocialPanel /> : view === 'health' ? <HealthPanel /> : <ChatView />}
     </MainLayout>
   );
 }

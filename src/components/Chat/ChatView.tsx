@@ -129,17 +129,23 @@ export default function ChatView() {
 
 const suggestions = [
   'What can you help me with?',
-  'Explain how prefix caching works',
-  'Help me debug a Rust error',
-  'Analyze my recent conversations',
+  'Explain how memory and caching work together',
+  'Guide me through the system health panel',
+  'Help me set up MCP tools for development',
+  'What can the Player panel do?',
 ];
 
 const welcomeTips = [
-  'Tip: LongMa remembers your past conversations for context',
-  'Tip: Use MCP tools to extend LongMa capabilities',
-  'Tip: Cache hit rate = cost savings, aim for >70%',
-  'Tip: LongMa runs in background even when window is closed',
-  'Tip: Switch between Flash and Pro models anytime',
+  '🧠 LongMa remembers everything across sessions with 7-layer memory',
+  '⚡ Three-tier cache (Hot/Warm/Cold) keeps responses fast and cheap',
+  '🎵 Try the Player panel to listen to music while you work',
+  '🔊 Voice panel can speak responses aloud using system TTS',
+  '📊 Health panel shows your system status at a glance',
+  '💡 Cache hit rate = cost savings. Aim for >70% with DeepSeek Flash',
+  '🔄 LongMa runs in the background even when the window is closed',
+  '🔧 MCP tools extend LongMa with unlimited capabilities',
+  '📈 Cost dashboard tracks every penny spent on API calls',
+  '🎯 R1 thinking chain shows you the model reasoning process',
 ];
 
 const styles: Record<string, any> = {
