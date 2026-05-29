@@ -1,0 +1,32 @@
+[package]
+name = "longma"
+version = "0.1.0"
+description = "DeepSeek-native desktop AI agent companion"
+authors = ["LongMa"]
+edition = "2021"
+
+[lib]
+name = "longma_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-shell = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-updater = "2"
+notify-rust = "4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["json", "stream"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "5"
+futures-util = "0.3"
+fastembed = "5"
+anyhow = "1"
+rodio = "0.19"
+sysinfo = "0.31"

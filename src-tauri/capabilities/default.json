@@ -1,0 +1,12 @@
+{
+  "identifier": "default",
+  "description": "Default capability set for LongMa",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "shell:allow-open",
+    "updater:default",
+    "updater:allow-check",
+    "updater:allow-download-and-install"
+  ]
+}

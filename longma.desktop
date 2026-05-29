@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=LongMa Agent
+Comment=AI Desktop Companion Agent - DeepSeek Optimized
+Exec=/home/guish/.opencode-workspace/projects/longma/run-windows.sh
+Icon=/home/guish/.opencode-workspace/projects/longma/public/longma-icon.png
+Terminal=true
+Type=Application
+Categories=Utility;AI;
+StartupNotify=true
