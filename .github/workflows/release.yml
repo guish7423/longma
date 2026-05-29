@@ -46,10 +46,18 @@ jobs:
       - run: npm install
       - run: npm test
       - run: npm run tauri build
+      - name: Create ZIP installer
+        shell: pwsh
+        run: |
+          Compress-Archive -Path src-tauri/target/release/bundle/nsis/*.exe -DestinationPath LongMa_Windows.zip
       - uses: actions/upload-artifact@v4
         with:
           name: LongMa-Windows
           path: src-tauri/target/release/bundle/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LongMa-Windows-ZIP
+          path: LongMa_Windows.zip
 
   build-macos:
     name: Build macOS
@@ -107,3 +115,4 @@ jobs:
             **/*.msi
             **/*.exe
             **/*.dmg
+            **/*.zip
