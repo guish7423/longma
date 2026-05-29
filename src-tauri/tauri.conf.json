@@ -52,10 +52,7 @@
       "nsis": {
         "installMode": "currentUser",
         "installerIcon": "icons/icon.ico",
-        "languages": ["en-US", "zh-CN"],
-        "displayLanguageSelector": true,
-        "startMenuFolder": "LongMa",
-        "installerHooks": null
+        "startMenuFolder": "LongMa"
       },
       "wix": null
     }
