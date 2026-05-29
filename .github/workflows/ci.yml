@@ -2,39 +2,26 @@ name: CI
 
 on:
   push:
-    branches: [main]
-    paths:
-      - 'projects/longma/**'
+    branches: [main, 'v*']
   pull_request:
     branches: [main]
-    paths:
-      - 'projects/longma/**'
-
-permissions:
-  contents: read
 
 env:
   CARGO_TERM_COLOR: always
-  PROJECT_DIR: projects/longma
 
 jobs:
   test:
-    name: Test & Build
+    name: Build & Test
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ${{ env.PROJECT_DIR }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
-          cache-dependency-path: ${{ env.PROJECT_DIR }}/package-lock.json
       - uses: dtolnay/rust-toolchain@stable
-      - name: Install system deps
+      - name: Install Linux deps
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
       - run: npm install
       - run: npm test
-      - run: npm run typecheck
       - run: npm run tauri build

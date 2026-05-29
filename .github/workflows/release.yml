@@ -33,15 +33,13 @@ jobs:
           node --version
           npm --version
       - name: Build
-        working-directory: projects/longma
-        run: |
-          npm install
-          npm test
-          npm run tauri build
+      - run: npm test
+      - run: npm run tauri build
+      - run: echo "SIG=${{ github.server_url }}/${{ github.repository }}/releases/download/${{ github.ref_name }}/LongMa_${{ needs.generate-updater.outputs.version }}_amd64.deb" >> $GITHUB_ENV
       - uses: actions/upload-artifact@v4
         with:
           name: LongMa-Linux
-          path: projects/longma/src-tauri/target/release/bundle/
+          path: src-tauri/target/release/bundle/
 
   build-windows:
     name: Build Windows
@@ -54,34 +52,32 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Build
         shell: pwsh
-        working-directory: projects/longma
-        run: |
-          npm install
-          npm run tauri build
+      - run: npm install
+      - run: npm test
+      - run: npm run tauri build
       - uses: actions/upload-artifact@v4
         with:
           name: LongMa-Windows
-          path: projects/longma/src-tauri/target/release/bundle/
+          path: src-tauri/target/release/bundle/
 
   build-macos:
     name: Build macOS
+    needs: generate-updater
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
       - uses: dtolnay/rust-toolchain@stable
-      - name: Build
-        working-directory: projects/longma
-        run: |
-          npm install
-          npm run tauri build
+      - run: npm install
+      - run: npm test
+      - run: npm run tauri build
       - uses: actions/upload-artifact@v4
         with:
           name: LongMa-macOS
-          path: projects/longma/src-tauri/target/release/bundle/
-
+          path: src-tauri/target/release/bundle/
   create-release:
     name: Create Release
     needs: [build-linux, build-windows, build-macos]
